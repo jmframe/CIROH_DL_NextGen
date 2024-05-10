@@ -1,0 +1,8 @@
+dask[dataframe]
+exactextract
+fsspec
+geopandas
+rioxarray
+s3fs
+xarray
+zarr
