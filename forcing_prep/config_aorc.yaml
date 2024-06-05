@@ -2,7 +2,8 @@ aorc_source: "s3://noaa-nws-aorc-v1-1-1km"
 aorc_year_url_template: "{source}/{year}.zarr"
 basin_url_template: "s3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg"
 basins:
-  - 1022500
+  #- 1022500 #may list out basins of interest, or simply specify 'all'
+  - 'all'
 years:
   - 2018 # The beginning year of interest, bgn_year
   - 2019 # This must be at least bgn_year + 1 to represent a single year. e.g. bgn_year = 2018, end_year = 2019 means grab data throughout 2018 only.

@@ -5,6 +5,7 @@ Entrypoint for resampling zarr based aorc to hy_features catchments
 @author: Nels Frazier <nfrazier@lynker.com>
 @author: Guy Litt <glitt@lynker.com>
 @version: 0.2
+@example: python /Users/guylitt/git/CIROH_DL_NextGen/forcing_prep/generate.py "/Users/guylitt/git/CIROH_DL_NextGen/forcing_prep/config_aorc.yaml" 
 Changelog/Contributions
  - version 0.1, originally created, NF
  - version 0.2, added yaml config, configurable arguments, minor bugfixes, GL
@@ -133,6 +134,18 @@ if __name__ == "__main__":
     x_lon_dim = config['x_lon_dim']
     y_lat_dim = config['y_lat_dim']
     out_dir = Path(config['out_dir'].format(home_dir=str(Path.home())))
+
+
+    if 'all' in basins:
+        # Expected format: 's3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg'
+        # base_path = 's3://lynker-spatial/hydrofabric/v20.1/camels/'
+        # List all the basins inside the hydrofabric s3 bucket path
+        base_path = str(Path(_basin_url).parent)
+        if 's3://' not in base_path:
+            base_path = str(base_path).replace('s3:/','s3://')
+        fs = s3fs.S3FileSystem(anon=True)
+        basins = np.unique([Path(x).stem.split('_')[1] for x in  fs.ls(base_path) if '/Gage_' in x])
+
 
     # Create output directory in case it does not exist
     if not Path.exists(out_dir):
