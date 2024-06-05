@@ -16,16 +16,12 @@ chmod +x generate.py
 To run, currently need to edit the list of camels ids in generate.py
 Can also adjust the time range (years) variable
 
-> [!NOTE]
-> TODO
-> Make time and camels ids configurable inputs
-
 Run the process with
 
 ```sh
-./generate.py
+./generate.py "/path/to/git/CIROH_DL_NextGen/forcing_prep/config_aorc.yaml" 
 ```
 or if generate is not executable
 ```sh
-python generate.py
+python generate.py "/path/to/git/CIROH_DL_NextGen/forcing_prep/config_aorc.yaml" 
 ```
