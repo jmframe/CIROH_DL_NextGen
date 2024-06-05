@@ -2,9 +2,16 @@
 """generate.py
 Entrypoint for resampling zarr based aorc to hy_features catchments
 
-@author Nels Frazier <nfrazier@lynker.com>
-@version 0.1
+@author: Nels Frazier <nfrazier@lynker.com>
+@author: Guy Litt <glitt@lynker.com>
+@version: 0.2
+Changelog/Contributions
+ - version 0.1, originally created, NF
+ - version 0.2, added yaml config, configurable arguments, minor bugfixes, GL
+
 """
+import argparse
+import yaml
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
@@ -102,21 +109,51 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
 
 
 if __name__ == "__main__":
-    _hydrofab_source = "s3://lynker-spatial/hydrofabric/v20.1/camels/"
-    _aorc_source = "s3://noaa-nws-aorc-v1-1-1km"
-    _aorc_year_url = "{source}/{year}.zarr"
-    _basin_url = _hydrofab_source + "Gage_{}.gpkg"
-    basins = [1022500]
-    # the zarr data is formatted as one year per bucket, and each var an object
-    years = (2018, 2019)  # end year +1, this is effetively a single year???
 
-    cvar = 8
-    ctime_max = 120
-    cid = -1
-    redo = False
-    x_lon_dim = 'longitude'
-    y_lat_dim = 'latitude'
-    out_dir = f'{Path.home()}/noaa/data/aorc'
+    parser = argparse.ArgumentParser(description='Process the YAML config file.')
+    parser.add_argument('config_path', type=str, help='Path to the YAML configuration file')
+    args = parser.parse_args()
+    
+    # Load the YAML configuration file
+    with open(args.config_path, 'r') as file:
+        config = yaml.safe_load(file)
+    
+
+    # Assign variables from the YAML file
+   
+    _aorc_source = config['aorc_source']
+    _aorc_year_url = config['aorc_year_url_template']
+    _basin_url = config['basin_url_template']
+    basins = config['basins']
+    years = tuple(config['years'])  # Convert list to tuple for years
+    cvar = config['cvar']
+    ctime_max = config['ctime_max']
+    cid = config['cid']
+    redo = config['redo']
+    x_lon_dim = config['x_lon_dim']
+    y_lat_dim = config['y_lat_dim']
+    out_dir = Path(config['out_dir'].format(home_dir=str(Path.home())))
+
+    # Create output directory in case it does not exist
+    if not Path.exists(out_dir):
+        print("Creating the following path for writing output: " + out_dir)
+        Path.mkdir(out_dir, exist_ok = True, parents = True)
+        
+    # _hydrofab_source = "s3://lynker-spatial/hydrofabric/v20.1/camels/"
+    # _aorc_source = "s3://noaa-nws-aorc-v1-1-1km"
+    # _aorc_year_url = "{source}/{year}.zarr"
+    # _basin_url = _hydrofab_source + "Gage_{}.gpkg"
+    # basins = [1022500]
+    # # the zarr data is formatted as one year per bucket, and each var an object
+    # years = (2018, 2019)  # end year +1, this is effetively a single year???
+
+    # cvar = 8
+    # ctime_max = 120
+    # cid = -1
+    # redo = False
+    # x_lon_dim = 'longitude'
+    # y_lat_dim = 'latitude'
+    # out_dir = f'{Path.home()}/noaa/data/aorc'
     # Setup the s3fs filesystem that is going to be used by xarray to open the zarr files
     _s3 = s3fs.S3FileSystem(anon=True)
     files = [
@@ -130,7 +167,7 @@ if __name__ == "__main__":
 
     forcing = xr.open_mfdataset(files, engine="zarr", parallel=True, consolidated=True)
 
-    gpkgs = [_basin_url.format(id) for id in basins]
+    gpkgs = [_basin_url.format(basin_id=id) for id in basins]
 
     proj = forcing[next(iter(forcing.keys()))].crs
     print(proj)
@@ -138,7 +175,7 @@ if __name__ == "__main__":
     for b in basins:
         # read the geopackage from s3
         gdf = gpd.read_file(
-            _s3.open(_basin_url.format(b)), driver="gpkg", layer="divides"
+            _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
         ).to_crs(proj)
 
         df = process_geo_data(gdf, forcing, b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
