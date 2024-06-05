@@ -135,21 +135,25 @@ if __name__ == "__main__":
     y_lat_dim = config['y_lat_dim']
     out_dir = Path(config['out_dir'].format(home_dir=str(Path.home())))
 
-
+    # Setup the s3fs filesystem that is going to be used by xarray to open the zarr files
+    _s3 = s3fs.S3FileSystem(anon=True)
+    # List all the basins inside the hydrofabric s3 bucket path
     if 'all' in basins:
         # Expected format: 's3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg'
         # base_path = 's3://lynker-spatial/hydrofabric/v20.1/camels/'
-        # List all the basins inside the hydrofabric s3 bucket path
         base_path = str(Path(_basin_url).parent)
         if 's3://' not in base_path:
             base_path = str(base_path).replace('s3:/','s3://')
-        fs = s3fs.S3FileSystem(anon=True)
-        basins = np.unique([Path(x).stem.split('_')[1] for x in  fs.ls(base_path) if '/Gage_' in x])
+        basins = np.unique([Path(x).stem.split('_')[1] for x in  _s3.ls(base_path) if '/Gage_' in x])
 
+    # Create a year-range output directory: 
+    year_str = '_to_'.join([str(x) for x in config['years']])
+    out_dir = Path(out_dir/f'{year_str}')
+    # TODO search for existing years and only fill in those which are missing
 
     # Create output directory in case it does not exist
     if not Path.exists(out_dir):
-        print("Creating the following path for writing output: " + out_dir)
+        print("Creating the following path for writing output: " + str(out_dir))
         Path.mkdir(out_dir, exist_ok = True, parents = True)
         
     # _hydrofab_source = "s3://lynker-spatial/hydrofabric/v20.1/camels/"
@@ -167,16 +171,15 @@ if __name__ == "__main__":
     # x_lon_dim = 'longitude'
     # y_lat_dim = 'latitude'
     # out_dir = f'{Path.home()}/noaa/data/aorc'
-    # Setup the s3fs filesystem that is going to be used by xarray to open the zarr files
-    _s3 = s3fs.S3FileSystem(anon=True)
+
     files = [
         s3fs.S3Map(
             root=_aorc_year_url.format(source=_aorc_source, year=year),
             s3=_s3,
             check=False,
         )
-        for year in range(*years)
-    ]
+        for year in range(*years) 
+    ] 
 
     forcing = xr.open_mfdataset(files, engine="zarr", parallel=True, consolidated=True)
 
@@ -190,14 +193,14 @@ if __name__ == "__main__":
         gdf = gpd.read_file(
             _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
         ).to_crs(proj)
-
-        df = process_geo_data(gdf, forcing, b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
+        uniq_name = b + f'_{year_str}'
+        df = process_geo_data(gdf, forcing, uniq_name, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
         df = df.to_dataframe()
         # print(df)
         cats = df.groupby("divide_id")
-        path = Path(f"{out_dir}/camels_{b}")
+        path = Path(f"{out_dir}/camels_{uniq_name}")
         Path.mkdir(path, exist_ok=True)
         for name, data in cats:
             data.to_csv(path / f"{name}.csv")
         agg = df.groupby("time").mean()
-        agg.to_csv(path / f"camels_{b}_agg.csv")
+        agg.to_csv(path / f"camels_{uniq_name}_agg.csv")
