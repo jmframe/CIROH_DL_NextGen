@@ -1,14 +1,20 @@
 #!/usr/bin/env python
 """generate.py
-Entrypoint for resampling zarr based aorc to hy_features catchments
-
+@title: Process AORC forcings into timeseries for CAMELS basins & subcatchments
 @author: Nels Frazier <nfrazier@lynker.com>
 @author: Guy Litt <glitt@lynker.com>
+@description: Entrypoint for resampling zarr based aorc to hy_features catchments
+@details: Saves to file the following outputs:
+    - Individual subcatchment forcing timeseries saved as f'{out_dir}/{year_str}/camels_{basin_id}_{year_str}/cat-{subcatchment_id}}.csv'
+        where year_str = {year_begin}_to_{year_end}, e.g. '1979_to_2023'
+    - Aggregated basin forcing timeseries saved as f'{out_dir}/{year_str}/camels_{basin_id}_{year_str}/{basin_id}_{year_str}_agg.csv'
+    - Basin AORC coverage weightings saved as f'{out_dir}/{year_str}/{basin_id}_{year_str}_coverage.parquet'
+
 @version: 0.2
-@example: python /Users/guylitt/git/CIROH_DL_NextGen/forcing_prep/generate.py "/Users/guylitt/git/CIROH_DL_NextGen/forcing_prep/config_aorc.yaml" 
+@example: python /path/to/git/CIROH_DL_NextGen/forcing_prep/generate.py "/path/to/git/CIROH_DL_NextGen/forcing_prep/config_aorc.yaml" 
 Changelog/Contributions
  - version 0.1, originally created, NF
- - version 0.2, added yaml config, configurable arguments, minor bugfixes, GL
+ - version 0.2, added yaml config, configurable arguments, define output directories, minor bugfixes, GL
 
 """
 import argparse
@@ -119,9 +125,7 @@ if __name__ == "__main__":
     with open(args.config_path, 'r') as file:
         config = yaml.safe_load(file)
     
-
     # Assign variables from the YAML file
-   
     _aorc_source = config['aorc_source']
     _aorc_year_url = config['aorc_year_url_template']
     _basin_url = config['basin_url_template']
@@ -149,28 +153,12 @@ if __name__ == "__main__":
     # Create a year-range output directory: 
     year_str = '_to_'.join([str(x) for x in config['years']])
     out_dir = Path(out_dir/f'{year_str}')
-    # TODO search for existing years and only fill in those which are missing
+    # TODO add search for existing years and only fill in those which are missing
 
     # Create output directory in case it does not exist
     if not Path.exists(out_dir):
         print("Creating the following path for writing output: " + str(out_dir))
         Path.mkdir(out_dir, exist_ok = True, parents = True)
-        
-    # _hydrofab_source = "s3://lynker-spatial/hydrofabric/v20.1/camels/"
-    # _aorc_source = "s3://noaa-nws-aorc-v1-1-1km"
-    # _aorc_year_url = "{source}/{year}.zarr"
-    # _basin_url = _hydrofab_source + "Gage_{}.gpkg"
-    # basins = [1022500]
-    # # the zarr data is formatted as one year per bucket, and each var an object
-    # years = (2018, 2019)  # end year +1, this is effetively a single year???
-
-    # cvar = 8
-    # ctime_max = 120
-    # cid = -1
-    # redo = False
-    # x_lon_dim = 'longitude'
-    # y_lat_dim = 'latitude'
-    # out_dir = f'{Path.home()}/noaa/data/aorc'
 
     files = [
         s3fs.S3Map(
@@ -196,11 +184,13 @@ if __name__ == "__main__":
         uniq_name = b + f'_{year_str}'
         df = process_geo_data(gdf, forcing, uniq_name, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
         df = df.to_dataframe()
-        # print(df)
+        # 
         cats = df.groupby("divide_id")
         path = Path(f"{out_dir}/camels_{uniq_name}")
         Path.mkdir(path, exist_ok=True)
+        # Write timeseries for each sub-catchment within CAMELS basin
         for name, data in cats:
-            data.to_csv(path / f"{name}.csv")
+            data.to_csv(path / f"{name}_{uniq_name}.csv")
+        # Write aggregated basin timeseries (all subcatchments averaged together)
         agg = df.groupby("time").mean()
         agg.to_csv(path / f"camels_{uniq_name}_agg.csv")
