@@ -53,7 +53,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
     data = data.sel(longitude=lons, latitude=lats)
     # Load or compute coverage masks
     save = Path(f"{out_dir}/{name}_coverage.parquet")
-    if save.exists() and redo == False:
+    if save.exists() and redo != True:
         print(f"Reading {name} coverage from file")
         coverage = ddf.read_parquet(save).compute()
     else:
@@ -182,7 +182,7 @@ if __name__ == "__main__":
             _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
         ).to_crs(proj)
         uniq_name = b + f'_{year_str}'
-        df = process_geo_data(gdf, forcing, uniq_name, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
+        df = process_geo_data(gdf, forcing, b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
         df = df.to_dataframe()
         # 
         cats = df.groupby("divide_id")
