@@ -83,7 +83,7 @@ def _build_index(series, global_shape):
     return pd.concat(all)
 
 
-def get_all_cov(dataset, weights_df):
+def get_all_cov(dataset, weights_df,y_lat_dim = 'latitude', x_lon_dim = 'longitude'):
     """
     From an exact extract weights dataframe, reshape the weights/coverage
     into flat dataframe keyed on divide_id. This dataframe also has the x,y
@@ -98,7 +98,7 @@ def get_all_cov(dataset, weights_df):
         "global_idx_x": np.int64,
     }
     all = dask_weights.map_partitions(
-        _build_index, (dataset.latitude.size, dataset.longitude.size), meta=meta
+        _build_index, (dataset[y_lat_dim].size, dataset[x_lon_dim].size), meta=meta
     )
     all = all.compute()
 

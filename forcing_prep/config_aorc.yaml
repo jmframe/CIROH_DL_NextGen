@@ -1,0 +1,16 @@
+aorc_source: "s3://noaa-nws-aorc-v1-1-1km" # url of AORC data stored as zarr files in s3
+aorc_year_url_template: "{source}/{year}.zarr" # filename format of AORC zarr data files
+basin_url_template: "s3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg" # URL of CAMELS basin geopackages
+basins:
+  #- 1022500 #may list out basins of interest, or simply specify 'all'
+  - 'all'
+years:
+  - 2022 # The beginning year of interest, bgn_yr. May go as low as 1979.
+  - 2024 # This must be at least bgn_yr + 1 to represent a single year. e.g. bgn_yr = 2018, end_year = 2019 means grab data throughout 2018 only. Default 2024 means data through 2023 grabbed.
+cvar: 8 # Chunk size for variables. Default 8.
+ctime_max: 120 # The max chunk time frame. Units of hours.
+cid: -1 # The divide_id chunk size. Default -1 means all divide_ids in a basin. A small value may be needed for very large basins with many catchments.
+redo: false # Set to true if you want to ensure intermediate data files not read in from local storage
+x_lon_dim: "longitude" # The longitude term in the AORC dataset
+y_lat_dim: "latitude" # The latitude term in the AORC dataset
+out_dir: "{home_dir}/noaa/data/aorc" # The local storage data output directory. 
