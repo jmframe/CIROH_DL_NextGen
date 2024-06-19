@@ -33,7 +33,10 @@ def process_geo_data(gdf, data, name):
     flipped = bool(len(data.latitude) > 1 and data.latitude[1] > data.latitude[0])
     if flipped:
         data = data.isel(latitude=slice(None, None, -1))
-    data = forcing.sel(longitude=lons, latitude=lats)
+        # in order for xarray to use slice indexing, need to ensure
+        # the lats slice is high to low when the latitude index is reversed
+        lats = slice(extent[3], extent[1])
+    data = data.sel(longitude=lons, latitude=lats)
     # Load or compute coverage masks
     save = Path(f"{name}_coverage.parquet")
     if save.exists():
