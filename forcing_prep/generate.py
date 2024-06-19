@@ -181,7 +181,7 @@ if __name__ == "__main__":
         gdf = gpd.read_file(
             _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
         ).to_crs(proj)
-        uniq_name = b + f'_{year_str}'
+        uniq_name = f'{b}_{year_str}'
         df = process_geo_data(gdf, forcing, b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
         df = df.to_dataframe()
         # 
