@@ -50,7 +50,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
         # in order for xarray to use slice indexing, need to ensure
         # the lats slice is high to low when the latitude index is reversed
         lats = slice(extent[3], extent[1])
-    data = data.sel(longitude=lons, latitude=lats)
+    data = data.sel(indexers = {x_lon_dim:lons, y_lat_dim:lats})
     # Load or compute coverage masks
     save = Path(f"{out_dir}/{name}_coverage.parquet")
     if save.exists() and redo != True:
