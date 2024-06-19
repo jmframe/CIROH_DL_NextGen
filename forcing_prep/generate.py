@@ -23,7 +23,7 @@ dask.config.set(pool=ThreadPool(12))
 import dask.dataframe as ddf
 
 
-def process_geo_data(gdf, data, name):
+def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = False, cvar = 8, ctime_max = 120, cid = -1):
     print("Slicing data to domain")
     # Only need to load the raster for the geo data extent
     extent = gdf.total_bounds
@@ -38,8 +38,8 @@ def process_geo_data(gdf, data, name):
         lats = slice(extent[3], extent[1])
     data = data.sel(longitude=lons, latitude=lats)
     # Load or compute coverage masks
-    save = Path(f"{name}_coverage.parquet")
-    if save.exists():
+    save = Path(f"{out_dir}/{name}_coverage.parquet")
+    if save.exists() and redo == False:
         print(f"Reading {name} coverage from file")
         coverage = ddf.read_parquet(save).compute()
     else:
@@ -47,13 +47,13 @@ def process_geo_data(gdf, data, name):
         weight_raster = (
             data[next(iter(data.keys()))]
             .isel(time=0)
-            .sel(longitude=lons, latitude=lats)
+            .sel(indexers = {x_lon_dim:lons, y_lat_dim:lats})
             .compute()
         )
         print("Computing Weights")
         weights_df = get_weights_df(gdf, weight_raster)
         print("Creating Coverage")
-        coverage = get_all_cov(data, weights_df)
+        coverage = get_all_cov(data, weights_df, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim)
         coverage.to_parquet(save)
     print("Processing the following raster data set")
     print(data)
@@ -62,20 +62,20 @@ def process_geo_data(gdf, data, name):
     # operations arcoss all the variable data at once
     data = data.to_dataarray()
 
-    # TODO move these chunk params to arguements/options
-    # These were chosen based on processing HUC 01 (19k geometries) within reasonable
+
+    # Chunk params were chosen based on processing HUC 01 (19k geometries) within reasonable
     # time and memory pressure.  These can have serious performance implications on large
     # geo data sets!!!
-    ctime = 120
-    cvar = 8
+    ctime = np.min([ctime_max, len(data['time'])])
+    
     # On huc01 when this is not 1, you get
     # KeyError: ('<this-array>-agg_xr5-1d8d7d6b0dd083c3658d89ffacb65555', 0, 0, 1)
     # when the results try to join :confused:
     # but seemed to work on on smaller domains (e.g. a camels basin)
-    cid = -1
+
     # Rechunk data through time, but ensure the entire spatial extent is in mem
     data = data.chunk(
-        {"variable": cvar, "latitude": -1, "longitude": -1, "time": ctime}
+        {"variable": cvar, y_lat_dim: -1, x_lon_dim: -1, "time": ctime}
     )
     # Build the template data array for the outputs
     coords = {
@@ -110,6 +110,13 @@ if __name__ == "__main__":
     # the zarr data is formatted as one year per bucket, and each var an object
     years = (2018, 2019)  # end year +1, this is effetively a single year???
 
+    cvar = 8
+    ctime_max = 120
+    cid = -1
+    redo = False
+    x_lon_dim = 'longitude'
+    y_lat_dim = 'latitude'
+    out_dir = f'{Path.home()}/noaa/data/aorc'
     # Setup the s3fs filesystem that is going to be used by xarray to open the zarr files
     _s3 = s3fs.S3FileSystem(anon=True)
     files = [
@@ -128,19 +135,17 @@ if __name__ == "__main__":
     proj = forcing[next(iter(forcing.keys()))].crs
     print(proj)
 
-    # forcing = forcing.isel(time=range(24*30*6))
-
     for b in basins:
         # read the geopackage from s3
         gdf = gpd.read_file(
             _s3.open(_basin_url.format(b)), driver="gpkg", layer="divides"
         ).to_crs(proj)
 
-        df = process_geo_data(gdf, forcing, b)
+        df = process_geo_data(gdf, forcing, b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
         df = df.to_dataframe()
         # print(df)
         cats = df.groupby("divide_id")
-        path = Path(f"camels_{b}")
+        path = Path(f"{out_dir}/camels_{b}")
         Path.mkdir(path, exist_ok=True)
         for name, data in cats:
             data.to_csv(path / f"{name}.csv")
