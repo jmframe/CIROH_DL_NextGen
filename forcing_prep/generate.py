@@ -46,7 +46,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
     # In  case the data is upside down, flip the y axis
     flipped = bool(len(data[y_lat_dim]) > 1 and data[y_lat_dim][1] > data[y_lat_dim][0])
     if flipped:
-        data = data.isel(latitude=slice(None, None, -1))
+        data = data.sel({y_lat_dim : slice(None, None, -1)})
         # in order for xarray to use slice indexing, need to ensure
         # the lats slice is high to low when the latitude index is reversed
         lats = slice(extent[3], extent[1])
