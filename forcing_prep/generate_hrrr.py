@@ -1,41 +1,42 @@
 '''
-Process HRRR data with CAMELS basins
+@title: Process HRRR forcings into timeseries for CAMELS basins & subcatchments
+@author: Guy Litt <glitt@lynker.com>
+@author: Nels Frazier <nfrazier@lynker.com>
+@description: Entrypoint for resampling zarr based hrrr to hy_features catchments
+@details: Saves to file the following outputs:
+    - Individual subcatchment forcing timeseries saved as f'{out_dir}/{year_str}/camels_{basin_id}_{year_str}/cat-{subcatchment_id}}.csv'
+        where year_str = {year_begin}_to_{year_end}, e.g. '1979_to_2023'
+    - Aggregated basin forcing timeseries saved as f'{out_dir}/{year_str}/camels_{basin_id}_{year_str}/{basin_id}_{year_str}_agg.csv'
+    - Basin AORC coverage weightings saved as f'{out_dir}/{year_str}/{basin_id}_{year_str}_coverage.parquet'
+@seealso: generate.py for processing AORC data
+@version: 0.1
+@example: python /path/to/git/CIROH_DL_NextGen/forcing_prep/generate_hrrr.py "/path/to/git/CIROH_DL_NextGen/forcing_prep/config_hrrr.yaml" 
+
+Changelog/Contributions
+ - version 0.1, 2024-06-20 adapted AORC processing to HRRR processing, GL
 
 '''
-
-
 import argparse
 import yaml
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
-import pandas as pd
-
 import dask
 import dask.delayed
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import s3fs
 import xarray as xr
 from dask.diagnostics import ProgressBar
 
-
-# from aggregate import window_aggregate
-# from weights import get_all_cov, get_weights_df
 # The custom functions
 from hrrr_proc import prep_date_time_range, _map_open_files_hrrrzarr, _gen_hrrr_zarr_urls
 from geo_proc import process_geo_data
 
 dask.config.set(pool=ThreadPool(12))
-import dask.dataframe as ddf
-
-import pandas as pd
 from functools import partial
 from cartopy import crs as ccrs
-import exactextract
-import zarr # An xarray.open_mfdataset dependency
-import rioxarray # dependency in exactextract
-import rasterio # dependency in exactextract
 
 def _preprocess_sel_time(xda, apcp_fcst):
     # This helps select the forecast hour of interest, rather than grab all forecasted hours
@@ -43,61 +44,43 @@ def _preprocess_sel_time(xda, apcp_fcst):
     xda = xda.isel(time=apcp_fcst)
     return xda
 
-# def _gen_hrrr_zarr_urls(date, level_vars_anl = None, level_vars_fcst=None, fcst_hr=0, bucket_subf = 's3://hrrrzarr/sfc'):
-#     # Zarr data file structure follows e.g. 'hrrrzarr/sfc/20240430/20240430_22z_anl.zarr/2m_above_ground/TMP/2m_above_ground'
-#     fs = s3fs.S3FileSystem(anon=True)
-#     bucket_subfolder_date = f'{bucket_subf}/{date}/'
-#     try:
-#         times_anl = [x for x in fs.ls(bucket_subfolder_date) if '_anl.zarr' in x]
-#         if not times_anl:
-#             raise(Warning(f'Could not list bucket for {date} inside {bucket_subfolder_date}. Skipping.'))
-#         urls_anl = _build_zarr_urls(times_anl, level_vars_anl)
-#         # Build forecast urls based on forecast hour
-#         times_avail_fcst = [x for x in fs.ls(bucket_subfolder_date) if '_fcst.zarr' in x]
-#         times_fcst = _fcst_url_find(times_avail_fcst, fcst_hr, bucket_subf, date)
-#         urls_fcst = _build_zarr_urls(times_fcst, level_vars_fcst)
-#     except:
-#         urls_fcst = list()
-#         urls_anl = list()
-#     return urls_fcst, urls_anl
-
 if __name__ == "__main__":
 
-    # parser = argparse.ArgumentParser(description='Process the YAML config file.')
-    # parser.add_argument('config_path', type=str, help='Path to the YAML configuration file')
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser(description='Process the YAML config file.')
+    parser.add_argument('config_path', type=str, help='Path to the YAML configuration file')
+    args = parser.parse_args()
     
-    # # Load the YAML configuration file
-    # with open(args.config_path, 'r') as file:
-    #     config = yaml.safe_load(file)
+    # Load the YAML configuration file
+    with open(args.config_path, 'r') as file:
+        config = yaml.safe_load(file)
 
-    # cvar = config['cvar']
-    # ctime_max = config['ctime_max']
-    # cid = config['cid']
-    # redo = config['redo']
-    # x_lon_dim = config['x_lon_dim']
-    # y_lat_dim = config['y_lat_dim']
-    # out_dir = Path(config['out_dir'].format(home_dir=str(Path.home())))
+    cvar = config['cvar']
+    ctime_max = config['ctime_max']
+    cid = config['cid']
+    redo = config['redo']
+    x_lon_dim = config['x_lon_dim']
+    y_lat_dim = config['y_lat_dim']
+    out_dir = Path(config['out_dir'].format(home_dir=str(Path.home()))) # out_dir = f'{Path.home()}/noaa/data/hrrr/redo'
 
-    time_bgn = '2018-08-13'# '2018-07-13'
-    time_end = '2024-04-30'
-
-    level_vars_anl = ['2m_above_ground/TMP',
-                '2m_above_ground/SPFH','surface/DLWRF',
-                'surface/DSWRF','surface/PRES',
-                '10m_above_ground/UGRD','10m_above_ground/VGRD']
-    level_vars_fcst = ['surface/APCP_1hr_acc_fcst']
-    apcp_fcst_hr = 0 # TODO add
-    _bucket_subf = 's3://hrrrzarr/sfc'
-    drop_vars = ['forecast_period','forecast_reference_time','height', 'pressure'] # Ignore these variables when merging forecast and nowcast xarray.Dataset objects. Default should likely just be ['forecast_period','forecast_reference_time'] 
-    _hydrofab_source = "s3://lynker-spatial/hydrofabric/v20.1/camels/"
-    _basin_url = _hydrofab_source + "Gage_{}.gpkg"
-    basins = [1022500]
-
-    y_lat_dim = 'projection_y_coordinate'
-    x_lon_dim = 'projection_x_coordinate'
-
-    out_dir = f'{Path.home()}/noaa/data/hrrr/redo'
+    time_bgn = config['time_bgn']# '2018-07-13'
+    time_end = config['time_end']
+    _bucket_subf = config['hrrr_source']
+    _basin_url = config['basin_url_template']
+    basins = config['basins']
+    _level_vars_anl = config['level_vars_anl']
+    _level_vars_fcst = config['level_vars_fcst']
+    apcp_fcst_hr = config['fcst_hr']
+    _drop_vars = config['drop_vars']
+    ####
+    fs = s3fs.S3FileSystem(anon=True)
+    # List all the basins inside the hydrofabric s3 bucket path
+    if 'all' in basins:
+        # Expected format: 's3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg'
+        # base_path = 's3://lynker-spatial/hydrofabric/v20.1/camels/'
+        base_path = str(Path(_basin_url).parent)
+        if 's3://' not in base_path:
+            base_path = str(base_path).replace('s3:/','s3://')
+        basins = np.unique([Path(x).stem.split('_')[1] for x in  fs.ls(base_path) if '/Gage_' in x])
 
     Path.mkdir(Path(out_dir), exist_ok = True)
 
@@ -106,8 +89,7 @@ if __name__ == "__main__":
 
     all_dates, all_hours = prep_date_time_range(time_bgn, time_end)
     gpkgs = [_basin_url.format(id) for id in basins]
-
-
+    
     # HRRR grid uses the Lambert Conformal projection:
     proj = ccrs.LambertConformal(central_longitude=262.5, 
                                     central_latitude=38.5, 
@@ -115,11 +97,7 @@ if __name__ == "__main__":
                                         globe=ccrs.Globe(semimajor_axis=6371229,
                                                         semiminor_axis=6371229))
 
-
-    fs = s3fs.S3FileSystem(anon=True)
-
     for b in basins:
-
         # read the geopackage from s3
         gdf = gpd.read_file(
             fs.open(_basin_url.format(b)), driver="gpkg", layer="divides").to_crs(proj)
@@ -127,8 +105,7 @@ if __name__ == "__main__":
         for date in all_dates:
             print(f'Processing basin {b} on {date}')
             try:
-                urls_fcst, urls_anl =  _gen_hrrr_zarr_urls(date=date, level_vars_anl=level_vars_anl, level_vars_fcst=level_vars_fcst,fcst_hr=apcp_fcst_hr, bucket_subf = _bucket_subf)
-                #urls_fcst, urls_anl = _gen_hrrr_zarr_urls(date, level_vars_anl, level_vars_fcst,apcp_fcst_hr, _bucket_subf)
+                urls_fcst, urls_anl =  _gen_hrrr_zarr_urls(date=date, level_vars_anl=_level_vars_anl, level_vars_fcst=_level_vars_fcst,fcst_hr=apcp_fcst_hr, bucket_subf = _bucket_subf)
             except:
                 raise ValueError(f'Could not list bucket for {date} inside {_bucket_subf}.\nConsider sf.ls() in lieu of explicit build.')
 
@@ -171,16 +148,14 @@ if __name__ == "__main__":
                 except:
                     raise ValueError(f'TODO figure out what to do for {date}') 
 
-            dat_anl = dat_anl.drop_vars([x for x in dat_anl.data_vars.keys() if x in drop_vars])
-            dat_fcst = dat_fcst.drop_vars([x for x in dat_fcst.data_vars.keys() if x in drop_vars])
+            dat_anl = dat_anl.drop_vars([x for x in dat_anl.data_vars.keys() if x in _drop_vars])
+            dat_fcst = dat_fcst.drop_vars([x for x in dat_fcst.data_vars.keys() if x in _drop_vars])
             forcing = dat_anl.merge(dat_fcst)   
 
-            df = process_geo_data(gdf, data=forcing, name = b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = True)
+            df = process_geo_data(gdf, data=forcing, name = b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo)
             df = df.to_dataframe()
-                
+            # Save results by basin average and subcatchment
             save_path_base = f'{out_dir}/camels_{b}_{date}'
-
-            # print(df)
             cats = df.groupby("divide_id")
             path = Path(save_path_base)
             Path.mkdir(path, exist_ok=True)
