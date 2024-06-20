@@ -1,0 +1,34 @@
+hrrr_source: 's3://hrrrzarr/sfc' # url of HRRR data stored as zarr files in s3
+aorc_year_url_template: "{source}/{year}.zarr" # filename format of AORC zarr data files
+basin_url_template: "s3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{}.gpkg" # URL of CAMELS basin geopackages
+basins:
+  #- 1022500 #may list out basins of interest, or simply specify 'all'
+  - 'all'
+time_bgn: '2018-10-25' # YYYY-MM-DD, The earliest HRRR zarr data with precipitation begins on '2018-07-13'
+time_end: '2024-05-30' # YYYY-MM-DD
+
+cvar: 8 # Chunk size for variables. Default 8.
+ctime_max: 120 # The max chunk time frame. Units of hours.
+cid: -1 # The divide_id chunk size. Default -1 means all divide_ids in a basin. A small value may be needed for very large basins with many catchments.
+redo: false # Set to true if you want to ensure intermediate data files not read in from local storage
+
+out_dir: "{home_dir}/noaa/data/hrrr/redo" # The local storage data output directory. 
+
+x_lon_dim: 'projection_x_coordinate' # The longitude term in the HRRR dataset
+y_lat_dim: 'projection_y_coordinate' # The latitude term in the HRRR dataset
+level_vars_anl: # These are the non-forecasted data variables
+  - '2m_above_ground/TMP'
+  - '2m_above_ground/SPFH'
+  - 'surface/DLWRF'
+  - 'surface/DSWRF'
+  - 'surface/PRES'
+  - '10m_above_ground/UGRD'
+  - '10m_above_ground/VGRD'
+level_vars_fcst: # These are the forecasted data variables (likely only precip)
+  - 'surface/APCP_1hr_acc_fcst'
+fcst_hr: 0 # The hours into the future forecast for variables specified in level_vars_fcst. Default 0 means the nowcast. Must be >= 0 up to the max HRRR forecast hours (12 hours???).
+drop_vars: # Ignore these variables when merging forecast and nowcast xarray.Dataset objects. Default should likely just be ['forecast_period','forecast_reference_time'] 
+ - 'forecast_period'
+ - 'forecast_reference_time'
+ - 'height'
+ - 'pressure' 
