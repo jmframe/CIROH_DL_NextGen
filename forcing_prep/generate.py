@@ -190,6 +190,7 @@ if __name__ == "__main__":
         Path.mkdir(path, exist_ok=True)
         # Write timeseries for each sub-catchment within CAMELS basin
         for name, data in cats:
+            data = data.droplevel('divide_id')
             data.to_csv(path / f"{name}_{uniq_name}.csv")
         # Write aggregated basin timeseries (all subcatchments averaged together)
         agg = df.groupby("time").mean()
