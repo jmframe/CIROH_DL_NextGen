@@ -160,6 +160,7 @@ if __name__ == "__main__":
             path = Path(save_path_base)
             Path.mkdir(path, exist_ok=True)
             for name, data in cats:
+                data = data.droplevel('divide_id')
                 data.to_csv(path / f"{name}.csv")
             agg = df.groupby("time").mean()
             agg.to_csv(path / f"camels_{b}_agg.csv")
