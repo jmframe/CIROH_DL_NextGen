@@ -90,19 +90,23 @@ def _gen_hrrr_zarr_urls(date, level_vars_anl = None, level_vars_fcst=None, fcst_
         urls_anl = list()
     return urls_fcst, urls_anl
 
-def _check_hrrrzarr_url_time_vs_data_time(urls_ls, ls_vars,drop_vars=None):
+def _check_hrrrzarr_url_time_vs_data_time(urls_ls, ls_vars,drop_vars=None,fcst_hr = 0):
     '''
     Checks to see if any timestamps specified in a zarr url do not agree
      with timestamps retrieved in data, and provides new data if needed.
     @param: urls_ls A list of urls organized by var[timebythehour[zarr url, metadata url]]
     @param: ls_vars: A list of datasets, each list item unique to a HRRR variable
+    @param: fcst_hr, int default 0. Number of hours into the future of a forecast, used in generating urls_ls and processing ls_vars
     @return: subdat_ls, ls_wrong_ts where subdat_ls is a new version of ls_vars, and ls_wrong_ts is a list of boolean if any variable changed
     @seealso: _map_open_files_hrrrzarr()
+
+    Changelog 
+        - 2024-06-25 adapt time concurrence check to account for forecast hour, GL
+
     '''
     ctr_ls = -1
     subdat_ls = list()
     ls_wrong_ts = list()
-    xr_cmbo = xr.Dataset()
     for subdat in ls_vars:
         # First check to see that time index is present. If not, skip the variable (e.g. 20201124 PRES):
         if 'time' not in subdat.dims:
@@ -113,10 +117,12 @@ def _check_hrrrzarr_url_time_vs_data_time(urls_ls, ls_vars,drop_vars=None):
         ctr_ls+=1
         # Extract timestamps in url:
         idx_chck = list()
+
         for day_url in  urls_ls[ctr_ls]:
-            dt_url = pd.to_datetime(day_url[0].split('/')[3][0:11],format='%Y%m%d_%H')
+            # Convert a url into a timestamp, acknowledging that for forecast hours, the forecast needs to be added back in to jive with the retrieved data's timestamp set using the 'preprocess' function arg passed inside _map_open_files_hrrrzarr()
+            dt_url = pd.to_datetime(day_url[0].split('/')[3][0:11],format='%Y%m%d_%H') + pd.Timedelta(hours = fcst_hr)
             idx_chck.append(np.where(subdat.time.data == dt_url))
-                    # Simplify the time indexes for keeps into a list of ints
+            # Simplify the time indexes for keeps into a list of ints
             idx_keep = [y[0] for y in [x[0] for x in idx_chck if x[0].size > 0]]
 
         if len(idx_keep) < len(urls_ls[ctr_ls]):
@@ -124,7 +130,6 @@ def _check_hrrrzarr_url_time_vs_data_time(urls_ls, ls_vars,drop_vars=None):
         sub_ls_var = list()
         for var_name, sub_da in subdat.items(): # loop across e/ dataarray to subset by time
             sub_ls_var.append(sub_da.isel(time=idx_keep))
-        xr_var = xr.merge(sub_ls_var)
         subdat_ls.append(xr.merge(sub_ls_var))
     return subdat_ls, ls_wrong_ts
 
@@ -134,7 +139,7 @@ def fxn():
     # "No index created for dimension time because variable time is not a coordinate. To create an index for time, please first call `.set_coords('time')` on this object."
     warnings.warn("UserWarning", UserWarning)
 
-def _map_open_files_hrrrzarr(urls_ls, concat_dim = ['time',None], preprocess = None,drop_vars = None):
+def _map_open_files_hrrrzarr(urls_ls, concat_dim = ['time',None], preprocess = None,drop_vars = None,fcst_hr = 0):
     # Expect urls_ls to be a nested list as follows: [var[date-hour[paired urls]]]
     fs = s3fs.S3FileSystem(anon=True)
     # Map the urls
@@ -223,7 +228,7 @@ def _map_open_files_hrrrzarr(urls_ls, concat_dim = ['time',None], preprocess = N
         dat = dat.drop_duplicates(dim = ['time'], keep = 'last')
 
     # Run timestamp checker:
-    subdat_ls, ls_wrong_ts = _check_hrrrzarr_url_time_vs_data_time(urls_ls, ls_vars,drop_vars)
+    subdat_ls, ls_wrong_ts = _check_hrrrzarr_url_time_vs_data_time(urls_ls, ls_vars,drop_vars,fcst_hr=fcst_hr)
     # When unexpected timestamps exist, _check_hrrrzarr_url_time_vs_data_time removes them (e.g. 20200727T01 should return 20200728T01 for TMP
     if any(ls_wrong_ts):
         # There are more timestamps than expected.

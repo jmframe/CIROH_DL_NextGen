@@ -69,8 +69,10 @@ if __name__ == "__main__":
     basins = config['basins']
     _level_vars_anl = config['level_vars_anl']
     _level_vars_fcst = config['level_vars_fcst']
-    apcp_fcst_hr = config['fcst_hr']
+    apcp_fcst_hr = config['fcst_hr'] # when the 'nowcast' is desired, this should be 0
     _drop_vars = config['drop_vars']
+
+    actual_fcst_dt_hr = apcp_fcst_hr + 1 # for accumulated precip, the actual forecast timestamp is accumulated precip at the end of an hour, so add 1 hour. E.g. if nowcast is desired, apcp_fcst_hr = 0, but we need to add 1 hour to represent the accumulated precip that actually happened.
     ####
     fs = s3fs.S3FileSystem(anon=True)
     # List all the basins inside the hydrofabric s3 bucket path
@@ -129,7 +131,7 @@ if __name__ == "__main__":
                 else: 
                     dat_anl = xr.Dataset()
                 if not skip_fcst:
-                    dat_fcst = _map_open_files_hrrrzarr(urls_ls = urls_fcst, concat_dim = ['time',None], preprocess = partial_func)
+                    dat_fcst = _map_open_files_hrrrzarr(urls_ls = urls_fcst, concat_dim = ['time',None], preprocess = partial_func,fcst_hr=actual_fcst_dt_hr)
                 else:
                     dat_fcst = xr.Dataset()
             except: # Example: 20190506
@@ -142,7 +144,7 @@ if __name__ == "__main__":
                     else: 
                         dat_anl = xr.Dataset()
                     if not skip_fcst:
-                        dat_fcst = _map_open_files_hrrrzarr(urls_ls = urls_fcst, concat_dim = ['time',None], preprocess = partial_func)
+                        dat_fcst = _map_open_files_hrrrzarr(urls_ls = urls_fcst, concat_dim = ['time',None], preprocess = partial_func,fcst_hr=actual_fcst_dt_hr)
                     else:
                         dat_fcst = xr.Dataset()
                 except:
