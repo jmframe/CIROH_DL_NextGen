@@ -3,7 +3,7 @@ basin_url_template: "s3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{}.gpkg" 
 basins:
   #- 1022500 #may list out basins of interest, or simply specify 'all'
   - 'all'
-time_bgn: '2018-11-08' # YYYY-MM-DD, The earliest HRRR zarr data with precipitation begins on '2018-07-13'
+time_bgn: '2018-07-13' # YYYY-MM-DD, The earliest HRRR zarr data with precipitation begins on '2018-07-13'
 time_end: '2024-05-30' # YYYY-MM-DD
 
 cvar: 8 # Chunk size for variables. Default 8.
@@ -11,7 +11,7 @@ ctime_max: 120 # The max chunk time frame. Units of hours.
 cid: -1 # The divide_id chunk size. Default -1 means all divide_ids in a basin. A small value may be needed for very large basins with many catchments.
 redo: false # Set to true if you want to ensure intermediate data files not read in from local storage
 
-out_dir: "{home_dir}/noaa/data/hrrr/redo" # The local storage data output directory. 
+out_dir: "{home_dir}/noaa/data/hrrr/out" # The local storage data output directory. 
 
 x_lon_dim: 'projection_x_coordinate' # The longitude term in the HRRR dataset
 y_lat_dim: 'projection_y_coordinate' # The latitude term in the HRRR dataset
