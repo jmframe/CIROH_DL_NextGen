@@ -1,5 +1,4 @@
 hrrr_source: 's3://hrrrzarr/sfc' # url of HRRR data stored as zarr files in s3
-aorc_year_url_template: "{source}/{year}.zarr" # filename format of AORC zarr data files
 basin_url_template: "s3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{}.gpkg" # URL of CAMELS basin geopackages
 basins:
   #- 1022500 #may list out basins of interest, or simply specify 'all'
