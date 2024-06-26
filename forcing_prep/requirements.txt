@@ -6,3 +6,4 @@ rioxarray
 s3fs
 xarray
 zarr
+netCDF4
