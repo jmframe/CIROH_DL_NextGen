@@ -171,8 +171,6 @@ if __name__ == "__main__":
 
     forcing = xr.open_mfdataset(files, engine="zarr", parallel=True, consolidated=True)
 
-    gpkgs = [_basin_url.format(basin_id=id) for id in basins]
-
     proj = forcing[next(iter(forcing.keys()))].crs
     print(proj)
 
