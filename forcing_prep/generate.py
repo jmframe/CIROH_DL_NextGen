@@ -174,7 +174,7 @@ if __name__ == "__main__":
         basins = np.unique([Path(x).stem.split('_')[1] for x in  _s3.ls(base_path) if '/Gage_' in x])
 
     # Create a year-range output directory: 
-    year_str = '_to_'.join([str(x) for x in config['years']])
+    year_str = '_to_'.join([str(x) for x in years])
     out_dir = Path(out_dir/f'{year_str}')
     config['out_dir'] = out_dir
     config['year_str'] = year_str
