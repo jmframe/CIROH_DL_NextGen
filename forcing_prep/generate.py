@@ -178,6 +178,7 @@ if __name__ == "__main__":
     _aorc_source = config.pop('aorc_source')
     _aorc_year_url = config.pop('aorc_year_url_template')
     _basin_url = config.pop('basin_url_template')
+    gpkg = Path(config.pop('gpkg', None))
     basins = config.pop('basins')
     years = tuple(config.pop('years'))  # Convert list to tuple for years
     cvar = config['cvar']
@@ -190,14 +191,15 @@ if __name__ == "__main__":
 
     # Setup the s3fs filesystem that is going to be used by xarray to open the zarr files
     _s3 = s3fs.S3FileSystem(anon=True)
-    # List all the basins inside the hydrofabric s3 bucket path
-    if 'all' in basins:
-        # Expected format: 's3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg'
-        # base_path = 's3://lynker-spatial/hydrofabric/v20.1/camels/'
-        base_path = str(Path(_basin_url).parent)
-        if 's3://' not in base_path:
-            base_path = str(base_path).replace('s3:/','s3://')
-        basins = np.unique([Path(x).stem.split('_')[1] for x in  _s3.ls(base_path) if '/Gage_' in x])
+    if gpkg is None:
+        # List all the basins inside the hydrofabric s3 bucket path
+        if 'all' in basins:
+            # Expected format: 's3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg'
+            # base_path = 's3://lynker-spatial/hydrofabric/v20.1/camels/'
+            base_path = str(Path(_basin_url).parent)
+            if 's3://' not in base_path:
+                base_path = str(base_path).replace('s3:/','s3://')
+            basins = np.unique([Path(x).stem.split('_')[1] for x in  _s3.ls(base_path) if '/Gage_' in x])
 
     # Create a year-range output directory: 
     year_str = '_to_'.join([str(x) for x in years])
@@ -224,11 +226,16 @@ if __name__ == "__main__":
 
     proj = forcing[next(iter(forcing.keys()))].crs
     print(proj)
-
-    for b in basins:
-        # read the geopackage from s3
-        gdf = gpd.read_file(
-            _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
-        ).to_crs(proj)
-        config['name'] = b
+    
+    if gpkg is not None:
+        gdf = gpd.read_file(gpkg, driver="gpkg", layer="divides").to_crs(proj)
+        config['name'] = gpkg.stem
         generate_forcing(gdf, config)
+    else:
+        for b in basins:
+            # read the geopackage from s3
+            gdf = gpd.read_file(
+                _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
+            ).to_crs(proj)
+            config['name'] = b
+            generate_forcing(gdf, config)
