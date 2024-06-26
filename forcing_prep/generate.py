@@ -148,6 +148,7 @@ def generate_forcing(gdf: gpd.GeoDataFrame, kwargs: dict) -> None:
     # save to netcdf is requested
     if nc_out:
         to_ngen_netcdf(df, out_dir, uniq_name)
+        path = out_dir
     else:
         df = df.to_dataframe()
             
@@ -162,7 +163,7 @@ def generate_forcing(gdf: gpd.GeoDataFrame, kwargs: dict) -> None:
     # See comment at end of to_ngen_netcdf for why this is still done in csv for now
     df = df.to_dataframe()
     agg = df.groupby("time").mean()
-    agg.to_csv(path / f"camels_{uniq_name}_agg.csv")
+    agg.to_csv(path / f"{uniq_name}_agg.csv")
 
 if __name__ == "__main__":
 
