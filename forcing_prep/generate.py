@@ -114,26 +114,52 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
     result = result.to_dataset(dim="variable")
     return result
 
+def to_ngen_netcdf(ds: xr.Dataset, out_dir: Path, uniq_name: str) -> None:
+        path = Path(f"{out_dir}/")
+        Path.mkdir(path, exist_ok=True)
+        ds = ds.rename_dims( {'divide_id': 'catchment-id'} )
+        ds = ds.rename({'divide_id':'ids', 'time':'Time'})
+        ds = ds.rename_dims( {'Time': 'time'} )
+        ds = ds.transpose('catchment-id', 'time')
+        ds['Time'] = ds['Time'].expand_dims({"catchment-id":ds['catchment-id']})
+        # This is how ngen "wants" to decode time, with time being double epoch times
+        # but cf convention combines units and epoch into same string
+        # and xarray won't let you override the units string here...
+        # TODO put in feature request for ngen to handle proper cf time units
+        # ds['Time'].attrs['epoch_start'] = "01/01/1970 00:00:00"
+        # ds['Time'].attrs['units'] = "seconds"
+        ds.to_netcdf(path / f"{uniq_name}.nc")
+        # Not sure this is going to work quite as well
+        # since ngen expects an id dimension in netcdf
+        # it is much easier to "fake" forcing to ngen using csv...
+        # ds = ds.groupby('time').mean(...)
+        # ds.to_netcdf(path / f"{uniq_name}_agg.csv")
+        return
+
 def generate_forcing(gdf: gpd.GeoDataFrame, kwargs: dict) -> None:
     
     year_str = kwargs.pop('year_str')
     name = kwargs.pop('name')
     out_dir = kwargs.get('out_dir', './')
-    
+    nc_out = kwargs.pop('netcdf', True)
     uniq_name = f'{name}_{year_str}'
 
     df = process_geo_data(gdf, forcing, name, **kwargs)
-
-    df = df.to_dataframe()
-        
-    cats = df.groupby("divide_id")
-    path = Path(f"{out_dir}/camels_{uniq_name}")
-    Path.mkdir(path, exist_ok=True)
-    # Write timeseries for each sub-catchment within CAMELS basin
-    for name, data in cats:
-        data = data.droplevel('divide_id')
-        data.to_csv(path / f"{name}_{uniq_name}.csv")
+    # save to netcdf is requested
+    if nc_out:
+        to_ngen_netcdf(df, out_dir, uniq_name)
+    else:
+        df = df.to_dataframe()
+            
+        cats = df.groupby("divide_id")
+        path = Path(f"{out_dir}/camels_{uniq_name}")
+        Path.mkdir(path, exist_ok=True)
+        # Write timeseries for each sub-catchment within CAMELS basin
+        for name, data in cats:
+            data = data.droplevel('divide_id')
+            data.to_csv(path / f"{name}_{uniq_name}.csv")
     # Write aggregated basin timeseries (all subcatchments averaged together)
+    # See comment at end of to_ngen_netcdf for why this is still done in csv for now
     df = df.to_dataframe()
     agg = df.groupby("time").mean()
     agg.to_csv(path / f"camels_{uniq_name}_agg.csv")
