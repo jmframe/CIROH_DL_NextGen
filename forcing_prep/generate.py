@@ -114,6 +114,29 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
     result = result.to_dataset(dim="variable")
     return result
 
+def generate_forcing(gdf: gpd.GeoDataFrame, kwargs: dict) -> None:
+    
+    year_str = kwargs.pop('year_str')
+    name = kwargs.pop('name')
+    out_dir = kwargs.get('out_dir', './')
+    
+    uniq_name = f'{name}_{year_str}'
+
+    df = process_geo_data(gdf, forcing, name, **kwargs)
+
+    df = df.to_dataframe()
+        
+    cats = df.groupby("divide_id")
+    path = Path(f"{out_dir}/camels_{uniq_name}")
+    Path.mkdir(path, exist_ok=True)
+    # Write timeseries for each sub-catchment within CAMELS basin
+    for name, data in cats:
+        data = data.droplevel('divide_id')
+        data.to_csv(path / f"{name}_{uniq_name}.csv")
+    # Write aggregated basin timeseries (all subcatchments averaged together)
+    df = df.to_dataframe()
+    agg = df.groupby("time").mean()
+    agg.to_csv(path / f"camels_{uniq_name}_agg.csv")
 
 if __name__ == "__main__":
 
@@ -126,11 +149,11 @@ if __name__ == "__main__":
         config = yaml.safe_load(file)
     
     # Assign variables from the YAML file
-    _aorc_source = config['aorc_source']
-    _aorc_year_url = config['aorc_year_url_template']
-    _basin_url = config['basin_url_template']
-    basins = config['basins']
-    years = tuple(config['years'])  # Convert list to tuple for years
+    _aorc_source = config.pop('aorc_source')
+    _aorc_year_url = config.pop('aorc_year_url_template')
+    _basin_url = config.pop('basin_url_template')
+    basins = config.pop('basins')
+    years = tuple(config.pop('years'))  # Convert list to tuple for years
     cvar = config['cvar']
     ctime_max = config['ctime_max']
     cid = config['cid']
@@ -153,6 +176,8 @@ if __name__ == "__main__":
     # Create a year-range output directory: 
     year_str = '_to_'.join([str(x) for x in config['years']])
     out_dir = Path(out_dir/f'{year_str}')
+    config['out_dir'] = out_dir
+    config['year_str'] = year_str
     # TODO add search for existing years and only fill in those which are missing
 
     # Create output directory in case it does not exist
@@ -179,17 +204,5 @@ if __name__ == "__main__":
         gdf = gpd.read_file(
             _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
         ).to_crs(proj)
-        uniq_name = f'{b}_{year_str}'
-        df = process_geo_data(gdf, forcing, b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
-        df = df.to_dataframe()
-        # 
-        cats = df.groupby("divide_id")
-        path = Path(f"{out_dir}/camels_{uniq_name}")
-        Path.mkdir(path, exist_ok=True)
-        # Write timeseries for each sub-catchment within CAMELS basin
-        for name, data in cats:
-            data = data.droplevel('divide_id')
-            data.to_csv(path / f"{name}_{uniq_name}.csv")
-        # Write aggregated basin timeseries (all subcatchments averaged together)
-        agg = df.groupby("time").mean()
-        agg.to_csv(path / f"camels_{uniq_name}_agg.csv")
+        config['name'] = b
+        generate_forcing(gdf, config)
