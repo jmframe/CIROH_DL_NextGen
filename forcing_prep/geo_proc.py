@@ -6,7 +6,7 @@
 # Changelog / contributions
     2024-May Originally created, NF
     2024-06-18 minor adaptations to flipped dataset check, data selection NF, GL
-
+    2024-06-27 expand slicing dimension coverage if first attempt at computing weights fails, GL
 '''
 
 
@@ -53,7 +53,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
         # in order for xarray to use slice indexing, need to ensure
         # the lats slice is high to low when the latitude index is reversed
         lats = slice(extent[3], extent[1])
-    data = data.sel(indexers = {x_lon_dim:lons, y_lat_dim:lats})
+    data_sub = data.sel(indexers = {x_lon_dim:lons, y_lat_dim:lats})
     # Load or compute coverage masks
     save = Path(f"{out_dir}/{name}_coverage.parquet")
     if save.exists() and redo != True:
@@ -62,13 +62,31 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
     else:
         # If we don't have weights cached, compute and save them
         weight_raster = (
-            data[next(iter(data.keys()))]
+            data_sub[next(iter(data_sub.keys()))]
             .isel(time=0)
             .sel(indexers = {x_lon_dim:lons, y_lat_dim:lats})
             .compute()
         )
         print("Computing Weights")
-        weights_df = get_weights_df(gdf, weight_raster)
+        try:
+            weights_df = get_weights_df(gdf, weight_raster)
+        except:
+            print('weight_raster may not have enough coverage. Try expanding size of sliced raster')
+            x_lon_diff = data[x_lon_dim][1].values - data[x_lon_dim][0].values
+            y_lat_diff = data[y_lat_dim][1].values - data[y_lat_dim][0].values
+            if flipped:
+                lats_big = slice(extent[3]-y_lat_diff, extent[1]+y_lat_diff)
+            else:
+                lats_big = slice(extent[1]-y_lat_diff, extent[3]+y_lat_diff)
+            lons_big = slice(extent[0]-x_lon_diff, extent[2]+x_lon_diff)
+            biggerdata = data.sel(indexers = {x_lon_dim:lons_big, y_lat_dim:lats_big})
+            weight_raster = (
+                biggerdata[next(iter(biggerdata.keys()))]
+                .isel(time=0)
+                .sel(indexers = {x_lon_dim:lons_big, y_lat_dim:lats_big})
+                .compute()
+            )
+            weights_df = get_weights_df(gdf, weight_raster)
         print("Creating Coverage")
         coverage = get_all_cov(data, weights_df, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim)
         coverage.to_parquet(save)
