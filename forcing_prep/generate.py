@@ -33,6 +33,60 @@ from geo_proc import process_geo_data
 
 dask.config.set(pool=ThreadPool(12))
 
+import dask.dataframe as ddf
+
+   
+def to_ngen_netcdf(ds: xr.Dataset, out_dir: Path, uniq_name: str) -> None:
+        path = Path(f"{out_dir}/")
+        Path.mkdir(path, exist_ok=True)
+        ds = ds.rename_dims( {'divide_id': 'catchment-id'} )
+        ds = ds.rename({'divide_id':'ids', 'time':'Time'})
+        ds = ds.rename_dims( {'Time': 'time'} )
+        ds = ds.transpose('catchment-id', 'time')
+        ds['Time'] = ds['Time'].expand_dims({"catchment-id":ds['catchment-id']})
+        # This is how ngen "wants" to decode time, with time being double epoch times
+        # but cf convention combines units and epoch into same string
+        # and xarray won't let you override the units string here...
+        # TODO put in feature request for ngen to handle proper cf time units
+        # ds['Time'].attrs['epoch_start'] = "01/01/1970 00:00:00"
+        # ds['Time'].attrs['units'] = "seconds"
+        ds.to_netcdf(path / f"{uniq_name}.nc")
+        # Not sure this is going to work quite as well
+        # since ngen expects an id dimension in netcdf
+        # it is much easier to "fake" forcing to ngen using csv...
+        # ds = ds.groupby('time').mean(...)
+        # ds.to_netcdf(path / f"{uniq_name}_agg.csv")
+        return
+
+def generate_forcing(gdf: gpd.GeoDataFrame, kwargs: dict) -> None:
+    
+    year_str = kwargs.pop('year_str')
+    name = kwargs.pop('name')
+    out_dir = kwargs.get('out_dir', './')
+    nc_out = kwargs.pop('netcdf', True)
+    uniq_name = f'{name}_{year_str}'
+
+    df = process_geo_data(gdf, forcing, name, **kwargs)
+    # save to netcdf is requested
+    if nc_out:
+        to_ngen_netcdf(df, out_dir, uniq_name)
+        path = out_dir
+    else:
+        df = df.to_dataframe()
+            
+        cats = df.groupby("divide_id")
+        path = Path(f"{out_dir}/camels_{uniq_name}")
+        Path.mkdir(path, exist_ok=True)
+        # Write timeseries for each sub-catchment within CAMELS basin
+        for name, data in cats:
+            data = data.droplevel('divide_id')
+            data.to_csv(path / f"{name}_{uniq_name}.csv")
+    # Write aggregated basin timeseries (all subcatchments averaged together)
+    # See comment at end of to_ngen_netcdf for why this is still done in csv for now
+    df = df.to_dataframe()
+    agg = df.groupby("time").mean()
+    agg.to_csv(path / f"{uniq_name}_agg.csv")
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Process the YAML config file.')
@@ -44,11 +98,12 @@ if __name__ == "__main__":
         config = yaml.safe_load(file)
     
     # Assign variables from the YAML file
-    _aorc_source = config['aorc_source']
-    _aorc_year_url = config['aorc_year_url_template']
-    _basin_url = config['basin_url_template']
-    basins = config['basins']
-    years = tuple(config['years'])  # Convert list to tuple for years
+    _aorc_source = config.pop('aorc_source')
+    _aorc_year_url = config.pop('aorc_year_url_template')
+    _basin_url = config.pop('basin_url_template')
+    gpkg = Path(config.pop('gpkg', None))
+    basins = config.pop('basins')
+    years = tuple(config.pop('years'))  # Convert list to tuple for years
     cvar = config['cvar']
     ctime_max = config['ctime_max']
     cid = config['cid']
@@ -59,18 +114,21 @@ if __name__ == "__main__":
 
     # Setup the s3fs filesystem that is going to be used by xarray to open the zarr files
     _s3 = s3fs.S3FileSystem(anon=True)
-    # List all the basins inside the hydrofabric s3 bucket path
-    if 'all' in basins:
-        # Expected format: 's3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg'
-        # base_path = 's3://lynker-spatial/hydrofabric/v20.1/camels/'
-        base_path = str(Path(_basin_url).parent)
-        if 's3://' not in base_path:
-            base_path = str(base_path).replace('s3:/','s3://')
-        basins = np.unique([Path(x).stem.split('_')[1] for x in  _s3.ls(base_path) if '/Gage_' in x])
+    if gpkg is None:
+        # List all the basins inside the hydrofabric s3 bucket path
+        if 'all' in basins:
+            # Expected format: 's3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg'
+            # base_path = 's3://lynker-spatial/hydrofabric/v20.1/camels/'
+            base_path = str(Path(_basin_url).parent)
+            if 's3://' not in base_path:
+                base_path = str(base_path).replace('s3:/','s3://')
+            basins = np.unique([Path(x).stem.split('_')[1] for x in  _s3.ls(base_path) if '/Gage_' in x])
 
     # Create a year-range output directory: 
-    year_str = '_to_'.join([str(x) for x in config['years']])
+    year_str = '_to_'.join([str(x) for x in years])
     out_dir = Path(out_dir/f'{year_str}')
+    config['out_dir'] = out_dir
+    config['year_str'] = year_str
     # TODO add search for existing years and only fill in those which are missing
 
     # Create output directory in case it does not exist
@@ -89,27 +147,18 @@ if __name__ == "__main__":
 
     forcing = xr.open_mfdataset(files, engine="zarr", parallel=True, consolidated=True)
 
-    gpkgs = [_basin_url.format(basin_id=id) for id in basins]
-
     proj = forcing[next(iter(forcing.keys()))].crs
     print(proj)
-
-    for b in basins:
-        # read the geopackage from s3
-        gdf = gpd.read_file(
-            _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
-        ).to_crs(proj)
-        uniq_name = f'{b}_{year_str}'
-        df = process_geo_data(gdf, forcing, b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo,cvar = cvar, ctime_max =ctime_max, cid = cid)
-        df = df.to_dataframe()
-        # 
-        cats = df.groupby("divide_id")
-        path = Path(f"{out_dir}/camels_{uniq_name}")
-        Path.mkdir(path, exist_ok=True)
-        # Write timeseries for each sub-catchment within CAMELS basin
-        for name, data in cats:
-            data = data.droplevel('divide_id')
-            data.to_csv(path / f"{name}_{uniq_name}.csv")
-        # Write aggregated basin timeseries (all subcatchments averaged together)
-        agg = df.groupby("time").mean()
-        agg.to_csv(path / f"camels_{uniq_name}_agg.csv")
+    
+    if gpkg is not None:
+        gdf = gpd.read_file(gpkg, driver="gpkg", layer="divides").to_crs(proj)
+        config['name'] = gpkg.stem
+        generate_forcing(gdf, config)
+    else:
+        for b in basins:
+            # read the geopackage from s3
+            gdf = gpd.read_file(
+                _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
+            ).to_crs(proj)
+            config['name'] = b
+            generate_forcing(gdf, config)
