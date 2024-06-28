@@ -179,7 +179,8 @@ if __name__ == "__main__":
     _aorc_source = config.pop('aorc_source')
     _aorc_year_url = config.pop('aorc_year_url_template')
     _basin_url = config.pop('basin_url_template')
-    gpkg = Path(config.pop('gpkg', None))
+    _gpkg = config.pop('gpkg', None)
+    gpkg = Path(_gpkg) if _gpkg is not None else None
     basins = config.pop('basins')
     years = tuple(config.pop('years'))  # Convert list to tuple for years
     cvar = config['cvar']
