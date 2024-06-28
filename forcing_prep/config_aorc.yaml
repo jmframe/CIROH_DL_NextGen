@@ -19,7 +19,6 @@ redo: false # Set to true if you want to ensure intermediate data files not read
 x_lon_dim: "longitude" # The longitude term in the AORC dataset
 y_lat_dim: "latitude" # The latitude term in the AORC dataset
 out_dir: "{home_dir}/noaa/data/aorc" # The local storage data output directory. 
-
 # By default, will generate ngen compatible netcdf files, to generate CSV files
 # instead, set the following key with false
 #netcdf: false
