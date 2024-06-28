@@ -37,14 +37,14 @@ def get_weights_df(gdf: gpd.GeoDataFrame, raster: xr.DataArray) -> pd.DataFrame:
         print("WARNING the following features couldn't be extracted by exact extract: ")
         print(missing.index)
         print("Assigning them to nearest neighbor values")
-    nearest = gdf[gdf["divide_id"].isin(missing.index)]
-    gdf = gdf.drop(nearest.index)
-    test = gpd.sjoin_nearest(gdf, nearest, how="right", distance_col="dist")
-    mapping = test[["divide_id_left", "divide_id_right"]].groupby("divide_id_right")
+        nearest = gdf[gdf["divide_id"].isin(missing.index)]
+        gdf = gdf.drop(nearest.index)
+        test = gpd.sjoin_nearest(gdf, nearest, how="right", distance_col="dist")
+        mapping = test[["divide_id_left", "divide_id_right"]].groupby("divide_id_right")
 
-    for name, group in mapping:
-        copy_from = output.loc[group.iloc[0]["divide_id_left"]]
-        output.loc[name] = copy_from
+        for name, group in mapping:
+            copy_from = output.loc[group.iloc[0]["divide_id_left"]]
+            output.loc[name] = copy_from
 
     # turns out this wasn't problem, but could be at some point...
     # TODO test exact extract's behavoir on features on the edge of the
