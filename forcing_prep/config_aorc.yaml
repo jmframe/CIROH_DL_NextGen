@@ -1,5 +1,10 @@
 aorc_source: "s3://noaa-nws-aorc-v1-1-1km" # url of AORC data stored as zarr files in s3
 aorc_year_url_template: "{source}/{year}.zarr" # filename format of AORC zarr data files
+# These are camels specific configurations, if you wish to process a single
+# ngen hydrofabric geopackage, you can override the camels specifics by setting the following
+#gpkg: <path_to_geopkg>
+# in which case the following two keys are ignored and forcings are generated
+# for that single geopackage
 basin_url_template: "s3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{basin_id}.gpkg" # URL of CAMELS basin geopackages
 basins:
   #- 1022500 #may list out basins of interest, or simply specify 'all'
@@ -14,3 +19,7 @@ redo: false # Set to true if you want to ensure intermediate data files not read
 x_lon_dim: "longitude" # The longitude term in the AORC dataset
 y_lat_dim: "latitude" # The latitude term in the AORC dataset
 out_dir: "{home_dir}/noaa/data/aorc" # The local storage data output directory. 
+
+# By default, will generate ngen compatible netcdf files, to generate CSV files
+# instead, set the following key with false
+#netcdf: false
