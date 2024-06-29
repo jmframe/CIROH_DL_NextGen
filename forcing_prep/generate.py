@@ -235,6 +235,7 @@ if __name__ == "__main__":
         generate_forcing(gdf, config)
     else:
         for b in basins:
+            config['year_str'] = year_str
             # read the geopackage from s3
             gdf = gpd.read_file(
                 _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
