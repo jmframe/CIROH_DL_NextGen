@@ -144,10 +144,6 @@ def generate_forcing(gdf: gpd.GeoDataFrame, kwargs: dict) -> None:
     nc_out = kwargs.pop('netcdf', True)
     uniq_name = f'{name}_{year_str}'
 
-    log_file = Path(out_dir) / "processing_log.txt"
-    with open(log_file, 'a') as log:
-        log.write(f"{name}: processing\n")
-
     df = process_geo_data(gdf, forcing, name, **kwargs)
     # save to netcdf is requested
     if nc_out:
@@ -168,9 +164,6 @@ def generate_forcing(gdf: gpd.GeoDataFrame, kwargs: dict) -> None:
     df = df.to_dataframe()
     agg = df.groupby("time").mean()
     agg.to_csv(path / f"{uniq_name}_agg.csv")
-
-    with open(log_file, 'a') as log:
-        log.write(f"{name}: finished\n")
 
 if __name__ == "__main__":
 
@@ -248,10 +241,17 @@ if __name__ == "__main__":
     else:
         for b in basins:
             
-            # Don't duplicate the data processing.
-            if (out_dir / f"{b}_coverage.parquet").exists():
-                print(f"{b} already processed, skipping.")
+            # Read the processing log file
+            with open(log_file, 'r') as file:
+                processed_basins = file.read().splitlines()
+            
+            if b in [line.split(':')[0] for line in processed_basins]:
+                print(f"Basin {b} already processed. Skipping.")
                 continue
+
+            # Add basin to the log file with status 'processing'
+            with open(log_file, 'a') as file:
+                file.write(f"{b}: processing\n")
 
             # This is a bug, this line should be unneccessary, but this is the simple fix I could fine.
             config['year_str'] = year_str
@@ -262,3 +262,8 @@ if __name__ == "__main__":
             ).to_crs(proj)
             config['name'] = b
             generate_forcing(gdf, config)
+            
+            # Update the log file with status 'finished'
+            with open(log_file, 'a') as file:
+                file.write(f"{b}: finished\n")
+
