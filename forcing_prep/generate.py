@@ -229,15 +229,41 @@ if __name__ == "__main__":
     proj = forcing[next(iter(forcing.keys()))].crs
     print(proj)
     
+    # Ensure the processing log file exists
+    log_file = Path(out_dir) / "processing_log.txt"
+    if not log_file.exists():
+        log_file.touch()
+
     if gpkg is not None:
         gdf = gpd.read_file(gpkg, driver="gpkg", layer="divides").to_crs(proj)
         config['name'] = gpkg.stem
         generate_forcing(gdf, config)
     else:
         for b in basins:
+            
+            # Read the processing log file
+            with open(log_file, 'r') as file:
+                processed_basins = file.read().splitlines()
+            
+            if b in [line.split(':')[0] for line in processed_basins]:
+                print(f"Basin {b} already processed. Skipping.")
+                continue
+
+            # Add basin to the log file with status 'processing'
+            with open(log_file, 'a') as file:
+                file.write(f"{b}: processing\n")
+
+            # This is a bug, this line should be unneccessary, but this is the simple fix I could fine.
+            config['year_str'] = year_str
+
             # read the geopackage from s3
             gdf = gpd.read_file(
                 _s3.open(_basin_url.format(basin_id=b)), driver="gpkg", layer="divides"
             ).to_crs(proj)
             config['name'] = b
             generate_forcing(gdf, config)
+            
+            # Update the log file with status 'finished'
+            with open(log_file, 'a') as file:
+                file.write(f"{b}: finished\n")
+
