@@ -1,13 +1,5 @@
-"""aggregate.py
-Module for jagged window wieghted mean aggregration
-
-@author Nels Frazier <nfrazier@lynker.com>
-@version 0.1
-"""
-
 import numpy as np
 import xarray as xr
-
 
 def window_aggregate(dataset, coverage):
     """
@@ -19,10 +11,22 @@ def window_aggregate(dataset, coverage):
     windows = coverage.groupby("divide_id")
     ids = coverage.index.unique().sort_values()
 
+    print(f"Dataset shape: {dataset.shape}")
     for id in ids:
         window = windows.get_group(id)
         cov = window["coverage"]
         index = (window["global_idx_y"], window["global_idx_x"])
+        
+        # Print the indices to debug
+        print(f"Processing divide_id {id}")
+        print(f"Index[0]: {index[0].values}")
+        print(f"Index[1]: {index[1].values}")
+
+        # Check if indices are within bounds
+        if np.any(index[0].values >= dataset.shape[2]) or np.any(index[1].values >= dataset.shape[3]):
+            print(f"Error: Indices out of bounds for divide_id {id}")
+            continue  # Skip this iteration if indices are out of bounds
+
         # get the raw numpy data for window cells
         sub = dataset.values[:, :, index[0], index[1]]
         # perform the aggregation, axis 2 is time
@@ -52,3 +56,4 @@ def window_aggregate(dataset, coverage):
     # actually helping the memory pressure through
     del dataset
     return ret
+
