@@ -11,16 +11,16 @@ def window_aggregate(dataset, coverage):
     windows = coverage.groupby("divide_id")
     ids = coverage.index.unique().sort_values()
 
-    print(f"Dataset shape: {dataset.shape}")
+   # print(f"Dataset shape: {dataset.shape}")
     for id in ids:
         window = windows.get_group(id)
         cov = window["coverage"]
         index = (window["global_idx_y"], window["global_idx_x"])
         
         # Print the indices to debug
-        print(f"Processing divide_id {id}")
-        print(f"Index[0]: {index[0].values}")
-        print(f"Index[1]: {index[1].values}")
+    #    print(f"Processing divide_id {id}")
+    #    print(f"Index[0]: {index[0].values}")
+    #    print(f"Index[1]: {index[1].values}")
 
         # Check if indices are within bounds
         if np.any(index[0].values >= dataset.shape[2]) or np.any(index[1].values >= dataset.shape[3]):
