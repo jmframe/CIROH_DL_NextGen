@@ -93,15 +93,29 @@ def _gen_hrrr_zarr_urls(date, level_vars_anl = None, level_vars_fcst=None, fcst_
 def _check_hrrrzarr_url_time_vs_data_time(urls_ls, ls_vars,drop_vars=None,fcst_hr = 0):
     '''
     Checks to see if any timestamps specified in a zarr url do not agree
-     with timestamps retrieved in data, and provides new data if needed.
-    @param: urls_ls A list of urls organized by var[timebythehour[zarr url, metadata url]]
-    @param: ls_vars: A list of datasets, each list item unique to a HRRR variable
-    @param: fcst_hr, int default 0. Number of hours into the future of a forecast, used in generating urls_ls and processing ls_vars
-    @return: subdat_ls, ls_wrong_ts where subdat_ls is a new version of ls_vars, and ls_wrong_ts is a list of boolean if any variable changed
-    @seealso: _map_open_files_hrrrzarr()
+    with timestamps retrieved in data, and provides new data if needed.
 
-    Changelog 
-        - 2024-06-25 adapt time concurrence check to account for forecast hour, GL
+    Parameters
+    ----------
+    urls_ls : list
+        A list of urls organized by var[timebythehour[zarr url, metadata url]].
+    ls_vars : list
+        A list of datasets, each list item unique to a HRRR variable.
+    fcst_hr : int, optional
+        Number of hours into the future of a forecast, used in generating urls_ls and processing ls_vars. Default is 0.
+
+    Returns
+    -------
+    tuple
+        subdat_ls, ls_wrong_ts where subdat_ls is a new version of ls_vars, and ls_wrong_ts is a list of boolean if any variable changed.
+
+    See Also
+    --------
+    _map_open_files_hrrrzarr
+
+    Changelog
+    ---------
+    2024-06-25: Adapt time concurrence check to account for forecast hour, GL
 
     '''
     ctr_ls = -1

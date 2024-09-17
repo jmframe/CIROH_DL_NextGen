@@ -1,19 +1,34 @@
 '''
-@title: Process HRRR forcings into timeseries for CAMELS basins & subcatchments
-@author: Guy Litt <glitt@lynker.com>
-@author: Nels Frazier <nfrazier@lynker.com>
-@description: Entrypoint for resampling zarr based hrrr to hy_features catchments
-@details: Saves to file the following outputs:
+Process HRRR forcings into timeseries for CAMELS basins & subcatchments.
+
+    Entrypoint for resampling zarr based HRRR to hy_features catchments.
+
+    Saves to file the following outputs:
     - Individual subcatchment forcing timeseries saved as f'{out_dir}/{year_str}/camels_{basin_id}_{year_str}/cat-{subcatchment_id}}.csv'
         where year_str = {year_begin}_to_{year_end}, e.g. '1979_to_2023'
     - Aggregated basin forcing timeseries saved as f'{out_dir}/{year_str}/camels_{basin_id}_{year_str}/{basin_id}_{year_str}_agg.csv'
     - Basin AORC coverage weightings saved as f'{out_dir}/{year_str}/{basin_id}_{year_str}_coverage.parquet'
-@seealso: generate.py for processing AORC data
-@version: 0.1
-@example: python /path/to/git/CIROH_DL_NextGen/forcing_prep/generate_hrrr.py "/path/to/git/CIROH_DL_NextGen/forcing_prep/config_hrrr.yaml" 
 
-Changelog/Contributions
- - version 0.1, 2024-06-20 adapted AORC processing to HRRR processing, GL
+    See Also
+    --------
+    generate.py for processing AORC data
+
+    Authors
+    -------
+    Guy Litt <glitt@lynker.com>
+    Nels Frazier <nfrazier@lynker.com>
+
+    Version
+    -------
+    0.1
+
+    Example
+    -------
+    python /path/to/git/CIROH_DL_NextGen/forcing_prep/generate_hrrr.py "/path/to/git/CIROH_DL_NextGen/forcing_prep/config_hrrr.yaml"
+
+    Changelog / Contributions
+    -------------------------
+    2024-06-20: Adapted AORC processing to HRRR processing, GL
 
 '''
 import argparse

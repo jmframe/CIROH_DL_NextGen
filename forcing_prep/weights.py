@@ -1,8 +1,13 @@
 """weights.py
-Module for computing polygon based raster weights
+    Module for computing polygon based raster weights
 
-@author Nels Frazier <nfrazier@lynker.com>
-@version 0.1
+    Author
+    -------
+    Nels Frazier <nfrazier@lynker.com>
+
+    Version
+    -------
+    0.1
 """
 
 import dask

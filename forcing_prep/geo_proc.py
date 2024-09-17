@@ -1,12 +1,15 @@
-'''
-@title: Process weights of raster grid data spanning catchment boundaries
-@author: Nels Frazier <nfrazier@lynker.com>
-@author: Guy Litt <glitt@lynker.com>
+'''Process weights of raster grid data spanning catchment boundaries.
 
-# Changelog / contributions
-    2024-May Originally created, NF
-    2024-06-18 minor adaptations to flipped dataset check, data selection NF, GL
-    2024-06-27 expand slicing dimension coverage if first attempt at computing weights fails, GL
+    Authors
+    -------
+    Nels Frazier <nfrazier@lynker.com>
+    Guy Litt <glitt@lynker.com>
+
+    Changelog / Contributions
+    -------------------------
+    2024-May: Originally created, NF
+    2024-06-18: Minor adaptations to flipped dataset check, data selection, NF, GL
+    2024-06-27: Expand slicing dimension coverage if first attempt at computing weights fails, GL
 '''
 
 
@@ -28,18 +31,35 @@ from weights import get_all_cov, get_weights_df
 
 def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = False, cvar = 8, ctime_max = 120, cid = -1):
     '''
-    @description: Given a geodataframe representing catchment(s) boundaries and a raster dataset,
+   Given a geodataframe representing catchment(s) boundaries and a raster dataset,
     compute the mean data values spanning the catchment(s) boundaries.
-    @param: gdf  geodataframe of catchments
-    @param: data xarray dataset of raster data
-    @param: name A unique file name used for saving catchment-specific grid weights. The basin id is ideal.
-    @param: y_lat_dim the latitude identifier in the xarray dataset \code{data}
-    @param: x_lon_dim the longitude identifier in the xarray dataset \code{data}
-    @param: out_dir the desired save directory for catchment-specific grid weights
-    @param: redo boolean default False. Should previously saved catchment grid weights be read in if they have already been created? If False, weights are regenerated
-    @param: cvar int default 8; Chunk size for variables. Default 8.
-    @param: ctime_max int default 120; The max chunk time frame. Units of hours.
-    @param: cid int default -1; The divide_id chunk size. Default -1 means all divide_ids in a basin. A small value may be needed for very large basins with many catchments.
+
+    Parameters
+    ----------
+    gdf : GeoDataFrame
+        Geodataframe of catchments.
+    data : xarray.Dataset
+        Xarray dataset of raster data.
+    name : str
+        A unique file name used for saving catchment-specific grid weights. The basin id is ideal.
+    y_lat_dim : str
+        The latitude identifier in the xarray dataset `data`.
+    x_lon_dim : str
+        The longitude identifier in the xarray dataset `data`.
+    out_dir : str
+        The desired save directory for catchment-specific grid weights.
+    redo : bool, optional
+        Should previously saved catchment grid weights be read in if they have already been created? If False, weights are regenerated. Default is False.
+    cvar : int, optional
+        Chunk size for variables. Default is 8.
+    ctime_max : int, optional
+        The max chunk time frame. Units of hours. Default is 120.
+    cid : int, optional
+        The divide_id chunk size. Default is -1, which means all divide_ids in a basin. A small value may be needed for very large basins with many catchments.
+
+    Returns
+    -------
+    xr.dataset of retrieved variables
     '''
     print("Slicing data to domain")
     # Only need to load the raster for the geo data extent

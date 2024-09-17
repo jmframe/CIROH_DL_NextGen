@@ -1,8 +1,12 @@
 """aggregate.py
-Module for jagged window wieghted mean aggregration
+    Module for jagged window wieghted mean aggregration
 
-@author Nels Frazier <nfrazier@lynker.com>
-@version 0.1
+    Authors
+    -------
+    Guy Litt <glitt@lynker.com>
+    Nels Frazier <nfrazier@lynker.com>
+    Version
+    -------
 """
 
 import numpy as np
