@@ -29,7 +29,7 @@ import dask.dataframe as ddf
 from aggregate import window_aggregate
 from weights import get_all_cov, get_weights_df
 
-def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = False, cvar = 8, ctime_max = 120, cid = -1):
+def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim, id_col = 'divide_id', out_dir = '', redo = False, cvar = 8, ctime_max = 120, cid = -1):
     '''
    Given a geodataframe representing catchment(s) boundaries and a raster dataset,
     compute the mean data values spanning the catchment(s) boundaries.
@@ -55,7 +55,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
     ctime_max : int, optional
         The max chunk time frame. Units of hours. Default is 120.
     cid : int, optional
-        The divide_id chunk size. Default is -1, which means all divide_ids in a basin. A small value may be needed for very large basins with many catchments.
+        The `id_col` chunk size. Default is -1, which means all divide_ids in a basin. A small value may be needed for very large basins with many catchments.
 
     Returns
     -------
@@ -91,7 +91,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
         )
         print("Computing Weights")
         try:
-            weights_df = get_weights_df(gdf, weight_raster)
+            weights_df = get_weights_df(gdf, weight_raster, id_col=id_col)
             data = data_sub
         except:
             print('weight_raster may not have enough coverage. Try expanding size of sliced raster')
@@ -139,14 +139,14 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
     # Build the template data array for the outputs
     coords = {
         "time": data.time,
-        "divide_id": gdf["divide_id"].sort_values(),
+        "divide_id": gdf[id_col].sort_values(),
         "variable": data.coords["variable"].values,
     }
     dims = ["variable", "time", "divide_id"]
     shp = (
         len(data.coords["variable"]),
         data.time.size,
-        len(gdf["divide_id"]),
+        len(gdf[id_col]),
     )
     var = xr.DataArray(np.zeros(shp), coords=coords, dims=dims)
     # It is important to make sure these chunks align with the data chunks!

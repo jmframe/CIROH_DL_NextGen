@@ -20,7 +20,7 @@ Process HRRR forcings into timeseries for CAMELS basins & subcatchments.
 
     Version
     -------
-    0.1
+    0.2
 
     Example
     -------
@@ -28,7 +28,8 @@ Process HRRR forcings into timeseries for CAMELS basins & subcatchments.
 
     Changelog / Contributions
     -------------------------
-    2024-06-20: Adapted AORC processing to HRRR processing, GL
+    2024-06-20: (v0.1) Adapted AORC processing to HRRR processing, GL
+    2024-09-17: (v0.2) Add local gpkg processing, GL
 
 '''
 import argparse
@@ -69,13 +70,18 @@ if __name__ == "__main__":
     with open(args.config_path, 'r') as file:
         config = yaml.safe_load(file)
 
+    home_dir = Path.home()
+
     cvar = config['cvar']
     ctime_max = config['ctime_max']
     cid = config['cid']
     redo = config['redo']
     x_lon_dim = config['x_lon_dim']
     y_lat_dim = config['y_lat_dim']
-    out_dir = Path(config['out_dir'].format(home_dir=str(Path.home()))) # out_dir = f'{Path.home()}/noaa/data/hrrr/redo'
+    out_dir = Path(config['out_dir'].format(home_dir=home_dir)) # out_dir = f'{Path.home()}/noaa/data/hrrr/redo'
+    dir_custom_gpkg = Path(config.get('dir_custom_gpkg', '').format(home_dir=home_dir)) if config.get('dir_custom_gpkg', None) is not None else None
+    id_col = config.get('id_col', 'divide_id') # Default to 'divide_id' in the case of hydrofabric
+
 
     time_bgn = config['time_bgn']# '2018-07-13'
     time_end = config['time_end']
@@ -86,6 +92,8 @@ if __name__ == "__main__":
     _level_vars_fcst = config['level_vars_fcst']
     apcp_fcst_hr = config['fcst_hr'] # when the 'nowcast' is desired, this should be 0
     _drop_vars = config['drop_vars']
+    
+    
 
     actual_fcst_dt_hr = apcp_fcst_hr + 1 # for accumulated precip, the actual forecast timestamp is accumulated precip at the end of an hour, so add 1 hour. E.g. if nowcast is desired, apcp_fcst_hr = 0, but we need to add 1 hour to represent the accumulated precip that actually happened.
     ####
@@ -97,6 +105,7 @@ if __name__ == "__main__":
         base_path = str(Path(_basin_url).parent)
         if 's3://' not in base_path:
             base_path = str(base_path).replace('s3:/','s3://')
+        # TODO provide an option if dir_custom_gpkg exists
         basins = np.unique([Path(x).stem.split('_')[1] for x in  fs.ls(base_path) if '/Gage_' in x])
 
     Path.mkdir(Path(out_dir), exist_ok = True)
@@ -105,7 +114,6 @@ if __name__ == "__main__":
     partial_func = partial(_preprocess_sel_time, apcp_fcst = apcp_fcst_hr)
 
     all_dates, all_hours = prep_date_time_range(time_bgn, time_end)
-    gpkgs = [_basin_url.format(id) for id in basins]
     
     # HRRR grid uses the Lambert Conformal projection:
     proj = ccrs.LambertConformal(central_longitude=262.5, 
@@ -115,9 +123,16 @@ if __name__ == "__main__":
                                                         semiminor_axis=6371229))
 
     for b in basins:
-        # read the geopackage from s3
-        gdf = gpd.read_file(
-            fs.open(_basin_url.format(b)), driver="gpkg", layer="divides").to_crs(proj)
+        print(f'Processing basin {b}')
+        if not dir_custom_gpkg: # read the geopackage from s3
+            print(f"Reading geopackage data from s3: {_basin_url}")
+            gdf = gpd.read_file(
+                fs.open(_basin_url.format(b)), driver="gpkg", layer="divides").to_crs(proj)
+        else: # read the geopackage locally
+            all_files = list(dir_custom_gpkg.glob('*.gpkg'))
+            gpkg_file = [f for f in all_files if b in f.stem]
+            print(f"Reading geopackage data locally from: {gpkg_file}")
+            gdf = gpd.read_file(gpkg_file[0],engine='pyogrio').to_crs(proj)
 
         for date in all_dates:
             print(f'Processing basin {b} on {date}')
@@ -169,7 +184,7 @@ if __name__ == "__main__":
             dat_fcst = dat_fcst.drop_vars([x for x in dat_fcst.data_vars.keys() if x in _drop_vars])
             forcing = dat_anl.merge(dat_fcst)   
 
-            df = process_geo_data(gdf, data=forcing, name = b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, out_dir = out_dir, redo = redo)
+            df = process_geo_data(gdf, data=forcing, name = b, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim, id_col=id_col, out_dir = out_dir, redo = redo)
             df = df.to_dataframe()
             # Save results by basin average and subcatchment
             save_path_base = f'{out_dir}/camels_{b}_{date}'

@@ -22,7 +22,7 @@ from exactextract import exact_extract
 dask.config.set({"dataframe.convert-string": False})
 
 
-def get_weights_df(gdf: gpd.GeoDataFrame, raster: xr.DataArray) -> pd.DataFrame:
+def get_weights_df(gdf: gpd.GeoDataFrame, raster: xr.DataArray,id_col:str = 'divide_id') -> pd.DataFrame:
     """Get the coverage weights of the given raster for each feature"""
     stats = ["cell_id", "coverage"]
     # raster must be xarray.core.dataarray.DataArray or list thereof
@@ -30,10 +30,10 @@ def get_weights_df(gdf: gpd.GeoDataFrame, raster: xr.DataArray) -> pd.DataFrame:
         raster,
         gdf,
         stats,
-        include_cols=["divide_id"],
+        include_cols=[id_col],
         output="pandas",
     )
-    output.set_index("divide_id", inplace=True)
+    output.set_index(id_col, inplace=True)
     # Some features may have no coverage, in that case warn the user
     # and for now just do a nearest neighbor assignment so they have
     # SOME data...
@@ -42,7 +42,7 @@ def get_weights_df(gdf: gpd.GeoDataFrame, raster: xr.DataArray) -> pd.DataFrame:
         print("WARNING the following features couldn't be extracted by exact extract: ")
         print(missing.index)
         print("Assigning them to nearest neighbor values")
-        nearest = gdf[gdf["divide_id"].isin(missing.index)]
+        nearest = gdf[gdf[id_col].isin(missing.index)]
         gdf = gdf.drop(nearest.index)
         test = gpd.sjoin_nearest(gdf, nearest, how="right", distance_col="dist")
         mapping = test[["divide_id_left", "divide_id_right"]].groupby("divide_id_right")
