@@ -195,7 +195,7 @@ def _map_open_files_hrrrzarr(urls_ls, concat_dim = ['time',None], preprocess = N
 
                         if not all([x in check.data_vars for x in must_have_vars]): # Example 20200318_22z DSWRF
                             # Expected variables include 'time' and the var_name
-                            print(f'Skipping {var_name} because {' & '.join(must_have_vars)} are not present as variables in the dataset from {hr}. ')
+                            print(f"Skipping {var_name} because {' & '.join(must_have_vars)} are not present as variables in the dataset from {hr}. ")
                             continue
                     except: # Skip this one and head to the next
                         print(f'Could not process {hr}. Skipping. Consider the preprocess function or faulty zarr data.')
