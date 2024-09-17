@@ -109,7 +109,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim, id_col = 'divide_id'
                 .sel(indexers = {x_lon_dim:lons_big, y_lat_dim:lats_big})
                 .compute()
             )
-            weights_df = get_weights_df(gdf, weight_raster)
+            weights_df = get_weights_df(gdf, weight_raster,id_col=id_col)
             data = biggerdata
         print("Creating Coverage")
         coverage = get_all_cov(data, weights_df, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim)
