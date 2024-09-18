@@ -1,7 +1,8 @@
 hrrr_source: 's3://hrrrzarr/sfc' # url of HRRR data stored as zarr files in s3
 basin_url_template: "s3://lynker-spatial/hydrofabric/v20.1/camels/Gage_{}.gpkg" # URL of CAMELS basin geopackages
 basins:
-  #- 1022500 #may list out basins of interest, or simply specify 'all'
+  #- "1195100"
+  # - "1022500" #may list out basins of interest, or simply specify 'all'
   - 'all'
 time_bgn: '2018-07-13' # YYYY-MM-DD, The earliest HRRR zarr data with precipitation begins on '2018-07-13'
 time_end: '2024-05-30' # YYYY-MM-DD
@@ -9,11 +10,13 @@ time_end: '2024-05-30' # YYYY-MM-DD
 cvar: 8 # Chunk size for variables. Default 8.
 ctime_max: 120 # The max chunk time frame. Units of hours.
 cid: -1 # The divide_id chunk size. Default -1 means all divide_ids in a basin. A small value may be needed for very large basins with many catchments.
-redo: false # Set to true if you want to ensure intermediate data files not read in from local storage
+redo: True # Set to true if you want to ensure intermediate data files not read in from local storage (in the case of the HRRR data, this should be True!!!!)
 
+out_dir: "{home_dir}/noaa/data/hrrr/out_gagesII_lambconf" # The local storage data output directory. 
 dir_custom_gpkg: "{home_dir}/noaa/camels/gagesII_wood" # OPTIONAL. The location where geopackage data are stored locally (in-case hydrofabric gpkg files undesired)
-out_dir: "{home_dir}/noaa/data/hrrr/out_gagesII" # The local storage data output directory. 
+epsg: 4326 # the CRS of the locally stored geopackage data (if not using hydrofabric)
 id_col: 'hru_id'
+
 
 x_lon_dim: 'projection_x_coordinate' # The longitude term in the HRRR dataset
 y_lat_dim: 'projection_y_coordinate' # The latitude term in the HRRR dataset

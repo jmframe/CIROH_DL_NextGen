@@ -115,7 +115,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim, id_col = 'divide_id'
         coverage = get_all_cov(data, weights_df, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim)
         coverage.to_parquet(save)
     print("Processing the following raster data set")
-    print(data)
+    #print(data)
     # Stack all the raster variables into a single multi-dimension array
     # This makes the windowing algorithm much more efficient as it can broadcast
     # operations arcoss all the variable data at once
@@ -154,7 +154,12 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim, id_col = 'divide_id'
     result = data.map_blocks(window_aggregate, args=(coverage,), template=var)
     # Perform the computations
     with ProgressBar():
-        result = result.compute()
+        try:
+            result = result.compute()
+        except:
+            print("TODO: is there a dimensional out of bounds problem? Try and figure this out")
+            # print("Attempting without chunking/window aggregation")
+            # result = data.compute()
     # Unstack the variables back into a dataset
     result = result.to_dataset(dim="variable")
     return result
