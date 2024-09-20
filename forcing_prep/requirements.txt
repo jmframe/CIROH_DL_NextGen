@@ -7,3 +7,5 @@ s3fs
 xarray
 zarr
 netCDF4
+cartopy # For HRRR processing
+pyogrio # For HRRR processing

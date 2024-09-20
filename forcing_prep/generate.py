@@ -1,21 +1,25 @@
 #!/usr/bin/env python
-"""generate.py
-@title: Process AORC forcings into timeseries for CAMELS basins & subcatchments
-@author: Nels Frazier <nfrazier@lynker.com>
-@author: Guy Litt <glitt@lynker.com>
-@description: Entrypoint for resampling zarr based aorc to hy_features catchments
-@details: Saves to file the following outputs:
+""" Process AORC forcings into timeseries for CAMELS basins & subcatchments
+Entrypoint for resampling zarr based AORC to hy_features catchments.
+
+    Saves to file the following outputs:
     - Individual subcatchment forcing timeseries saved as f'{out_dir}/{year_str}/camels_{basin_id}_{year_str}/cat-{subcatchment_id}}.csv'
         where year_str = {year_begin}_to_{year_end}, e.g. '1979_to_2023'
     - Aggregated basin forcing timeseries saved as f'{out_dir}/{year_str}/camels_{basin_id}_{year_str}/{basin_id}_{year_str}_agg.csv'
     - Basin AORC coverage weightings saved as f'{out_dir}/{year_str}/{basin_id}_{year_str}_coverage.parquet'
 
-@version: 0.2
-@example: python /path/to/git/CIROH_DL_NextGen/forcing_prep/generate.py "/path/to/git/CIROH_DL_NextGen/forcing_prep/config_aorc.yaml" 
-Changelog/Contributions
- - version 0.1, originally created, NF
- - version 0.2, added yaml config, configurable arguments, define output directories, minor bugfixes, GL
+    Authors
+    -------
+    Nels Frazier <nfrazier@lynker.com>
+    Guy Litt <glitt@lynker.com>
 
+    Version
+    -------
+    0.2
+
+    Example
+    -------
+    python /path/to/git/CIROH_DL_NextGen/forcing_prep/generate.py "/path/to/git/CIROH_DL_NextGen/forcing_prep/config_aorc.yaml"
 """
 import argparse
 import yaml
