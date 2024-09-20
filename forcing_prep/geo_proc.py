@@ -59,6 +59,8 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
     if save.exists() and redo != True:
         print(f"Reading {name} coverage from file")
         coverage = ddf.read_parquet(save).compute()
+        data = data_sub
+        #NJF FIXME this isn't quite right if coverage is created based on biggerdata below?????
     else:
         # If we don't have weights cached, compute and save them
         weight_raster = (
@@ -70,6 +72,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
         print("Computing Weights")
         try:
             weights_df = get_weights_df(gdf, weight_raster)
+            data = data_sub
         except:
             print('weight_raster may not have enough coverage. Try expanding size of sliced raster')
             x_lon_diff = data[x_lon_dim][1].values - data[x_lon_dim][0].values
@@ -87,6 +90,7 @@ def process_geo_data(gdf, data, name, y_lat_dim, x_lon_dim,out_dir = '', redo = 
                 .compute()
             )
             weights_df = get_weights_df(gdf, weight_raster)
+            data = biggerdata
         print("Creating Coverage")
         coverage = get_all_cov(data, weights_df, y_lat_dim = y_lat_dim, x_lon_dim = x_lon_dim)
         coverage.to_parquet(save)
