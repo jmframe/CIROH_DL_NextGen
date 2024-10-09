@@ -1,7 +1,7 @@
 # Read the processing_log.txt file
 #with open('/home/jmframe/data/AORC/camels/1980_to_2024/processing_log.txt', 'r') as file:
 #/home/jmframe/data/CAMELS_US/wood_july2024/1980_to_2024/
-with open('/home/jmframe/data/CAMELS_US/wood_july2024/1980_to_2024/processing_log.txt', 'r') as file:
+with open('/home/jmframe/data/CAMELS_US/hourly/aorc/1980_to_2024/processing_log.txt', 'r') as file:
     lines = file.readlines()
 
 # Extract basin IDs and remove duplicates
