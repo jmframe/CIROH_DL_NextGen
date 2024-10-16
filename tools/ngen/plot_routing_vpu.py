@@ -1,9 +1,11 @@
 import geopandas as gpd
+import geopandas as gpd
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
 import os
 import matplotlib.colors as mcolors
+from multiprocessing import Pool, cpu_count
 
 # Paths for input and output data
 gpkg_dir = "/home/jmframe/ngen/extern/lstm/hydrofabric/v20.1/gpkg/"
@@ -63,7 +65,7 @@ def plot_conus_timestep(timestep):
         markersize=10,
         ax=ax,
         alpha=0.7,
-        norm=mcolors.LogNorm(vmin=merged_gdf["flow"].min() + 1e-6, vmax=merged_gdf["flow"].max())
+        norm=mcolors.PowerNorm(gamma=0.4)  
     )
 
     # Add title and labels
@@ -76,13 +78,19 @@ def plot_conus_timestep(timestep):
     plt.close()
     print(f"Saved plot for timestep {timestep}")
 
+def main():
+    # Get the number of available CPU cores
+    num_cores = cpu_count()
+
+    # List of timesteps to process (assuming 336 timesteps)
+    timesteps = list(range(100, 336))
+
+    # Use multiprocessing Pool to parallelize the plotting process
+    with Pool(processes=num_cores) as pool:
+        pool.map(plot_conus_timestep, timesteps)
+
 if __name__ == "__main__":
-    # Loop over all timesteps in the dataset (adjust range as needed)
-    for timestep in range(0, 336):  # Assuming 336 timesteps (14 days, hourly)
-        plot_conus_timestep(timestep)
-
-
-
+    main()
 
 # import geopandas as gpd
 # import pandas as pd
