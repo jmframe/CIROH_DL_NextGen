@@ -32,6 +32,7 @@ import geopandas as gpd
 import numpy as np
 import s3fs
 import xarray as xr
+import pandas as pd
 
 from geo_proc import process_geo_data
 
@@ -81,13 +82,19 @@ def generate_forcing(gdf: gpd.GeoDataFrame, kwargs: dict) -> None:
         path = Path(f"{out_dir}/camels_{uniq_name}")
         Path.mkdir(path, exist_ok=True)
         # Write timeseries for each sub-catchment within CAMELS basin
-        for name, data in cats:
+        for nam, data in cats:
             data = data.droplevel('divide_id')
-            data.to_csv(path / f"{name}_{uniq_name}.csv")
+            data.to_csv(path / f"{nam}_{uniq_name}.csv")
     # Write aggregated basin timeseries (all subcatchments averaged together)
     # See comment at end of to_ngen_netcdf for why this is still done in csv for now
     df = df.to_dataframe()
-    agg = df.groupby("time").mean()
+    # Aggregation weights - must be weighted by the area of each divide
+    path_cov = Path(f"{out_dir}/{name}_coverage.parquet")
+    cov = pd.read_parquet(path_cov)
+    ser_sqkm = cov['coverage'].groupby('divide_id').sum()
+    ser_frac = ser_sqkm/ser_sqkm.sum()
+    wt_vals = df.mul(ser_frac, level='divide_id', axis=0)
+    agg = wt_vals.groupby(level='time').sum()
     agg.to_csv(path / f"{uniq_name}_agg.csv")
 
 if __name__ == "__main__":
